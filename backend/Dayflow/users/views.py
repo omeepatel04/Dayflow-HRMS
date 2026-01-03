@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 from .models import User, EmployeeProfile
 from .serializers import (
@@ -149,3 +150,33 @@ class EmployeeListView(APIView):
             'count': profiles.count(),
             'employees': serializer.data
         }, status=status.HTTP_200_OK)
+
+
+class LogoutView(APIView):
+    """
+    Logout view - Blacklist the refresh token
+    """
+    
+    def post(self, request):
+        try:
+            refresh_token = request.data.get('refresh_token')
+            
+            if not refresh_token:
+                return Response({
+                    'error': 'Refresh token is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Blacklist the token
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            
+            return Response({
+                'message': 'Successfully logged out'
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'error': 'Invalid token or already blacklisted',
+                'detail': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
