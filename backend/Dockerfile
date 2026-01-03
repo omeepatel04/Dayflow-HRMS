@@ -31,4 +31,4 @@ RUN mkdir -p /app/backend/staticfiles /app/backend/media
 EXPOSE 8000
 
 # Run gunicorn (or django dev server)
-CMD ["python", "Dayflow/manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python", "Dayflow/manage.py", "runserver", "localhost:8000"]
