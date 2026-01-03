@@ -1,32 +1,88 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ROUTES } from './config/constants';
-
-// Placeholder components - to be implemented in features
-const LoginPage = () => <div className="p-8">Login Page - Coming Soon</div>;
-const SignupPage = () => <div className="p-8">Signup Page - Coming Soon</div>;
-const EmployeeDashboard = () => <div className="p-8">Employee Dashboard - Coming Soon</div>;
-const AdminDashboard = () => <div className="p-8">Admin Dashboard - Coming Soon</div>;
+import Login from './pages/auth/Login';
+import EmployeeDashboard from './pages/employee/Dashboard';
+import AttendancePage from './pages/employee/Attendance';
+import TimeOffPage from './pages/employee/TimeOff';
+import ProfilePage from './pages/employee/Profile';
+import AdminDashboard from './pages/admin/Dashboard';
+import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute';
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Auth Routes */}
-          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-          <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
-          
-          {/* Employee Routes */}
-          <Route path={ROUTES.EMPLOYEE_DASHBOARD} element={<EmployeeDashboard />} />
-          
-          {/* Admin Routes */}
-          <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
-          
-          {/* Default Route */}
+          <Route path={ROUTES.LOGIN} element={<Login />} />
+          <Route path={ROUTES.SIGNUP} element={<Navigate to={ROUTES.LOGIN} replace />} />
+          <Route
+            path={ROUTES.EMPLOYEE_DASHBOARD}
+            element={(
+              <ProtectedRoute>
+                <EmployeeDashboard />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path={ROUTES.EMPLOYEE_ATTENDANCE}
+            element={(
+              <ProtectedRoute>
+                <AttendancePage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path={ROUTES.EMPLOYEE_TIME_OFF}
+            element={(
+              <ProtectedRoute>
+                <TimeOffPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path={ROUTES.EMPLOYEE_PROFILE}
+            element={(
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            )}
+          />
+
+          <Route
+            path={ROUTES.ADMIN_DASHBOARD}
+            element={(
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            )}
+          />
+          <Route
+            path={ROUTES.ADMIN_EMPLOYEES}
+            element={(
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            )}
+          />
+          <Route
+            path={ROUTES.ADMIN_ATTENDANCE}
+            element={(
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            )}
+          />
+          <Route
+            path={ROUTES.ADMIN_TIME_OFF}
+            element={(
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            )}
+          />
+
           <Route path="/" element={<Navigate to={ROUTES.LOGIN} replace />} />
-          
-          {/* 404 */}
           <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
         </Routes>
       </BrowserRouter>
@@ -35,4 +91,3 @@ function App() {
 }
 
 export default App;
-
