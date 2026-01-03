@@ -1,15 +1,19 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from datetime import date, time
-from .models import Attendance
-from .serializers import AttendanceSerializer
+from django.db.models import Sum, Count, Q
+from datetime import date, time, datetime
+from .models import Attendance, AttendanceRegularization
+from .serializers import AttendanceSerializer, AttendanceRegularizationSerializer
+from users.permissions import IsAdminOrHR, CanModifyAttendance
 
 
 class CheckInView(APIView):
     """Check-in endpoint"""
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -32,6 +36,10 @@ class CheckInView(APIView):
             status='PRESENT'
         )
         
+        # Check if late arrival
+        attendance.check_late_arrival()
+        attendance.save()
+        
         serializer = AttendanceSerializer(attendance)
         return Response({
             'message': 'Checked in successfully',
@@ -41,6 +49,7 @@ class CheckInView(APIView):
 
 class CheckOutView(APIView):
     """Check-out endpoint"""
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -58,6 +67,10 @@ class CheckOutView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             attendance.check_out_time = timezone.now().time()
+            
+            # Calculate working hours and check early departure
+            attendance.calculate_working_hours()
+            attendance.check_early_departure()
             attendance.save()
             
             serializer = AttendanceSerializer(attendance)
@@ -74,6 +87,7 @@ class CheckOutView(APIView):
 
 class MyAttendanceView(APIView):
     """Get current user's attendance records"""
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -103,6 +117,7 @@ class MyAttendanceView(APIView):
 
 class AllAttendanceView(APIView):
     """Get all attendance records (Admin/HR/Manager)"""
+    permission_classes = [IsAdminOrHR]
     
     def get(self, request):
         # Filter parameters
@@ -131,6 +146,7 @@ class AllAttendanceView(APIView):
 
 class AttendanceDetailView(APIView):
     """Get, update, or delete specific attendance record"""
+    permission_classes = [CanModifyAttendance]
     
     def get(self, request, pk):
         attendance = get_object_or_404(Attendance, pk=pk)
@@ -154,3 +170,171 @@ class AttendanceDetailView(APIView):
         return Response({
             'message': 'Attendance deleted successfully'
         }, status=status.HTTP_204_NO_CONTENT)
+
+
+class MonthlyAttendanceSummaryView(APIView):
+    """Get monthly attendance summary for an employee"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user if hasattr(request, 'user') else None
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Get month and year from query params (default to current month)
+        month = int(request.query_params.get('month', datetime.now().month))
+        year = int(request.query_params.get('year', datetime.now().year))
+        
+        # Get all attendance for the month
+        attendances = Attendance.objects.filter(
+            employee=user,
+            date__month=month,
+            date__year=year
+        )
+        
+        # Calculate statistics
+        total_days = attendances.count()
+        present_days = attendances.filter(status='PRESENT').count()
+        absent_days = attendances.filter(status='ABSENT').count()
+        half_days = attendances.filter(status='HALF_DAY').count()
+        leaves = attendances.filter(status='LEAVE').count()
+        late_arrivals = attendances.filter(is_late=True).count()
+        early_departures = attendances.filter(is_early_departure=True).count()
+        
+        total_hours = attendances.aggregate(
+            total=Sum('working_hours')
+        )['total'] or 0
+        
+        total_overtime = attendances.aggregate(
+            total=Sum('overtime_hours')
+        )['total'] or 0
+        
+        return Response({
+            'month': month,
+            'year': year,
+            'summary': {
+                'total_days': total_days,
+                'present_days': present_days,
+                'absent_days': absent_days,
+                'half_days': half_days,
+                'leaves': leaves,
+                'late_arrivals': late_arrivals,
+                'early_departures': early_departures,
+                'total_working_hours': float(total_hours),
+                'total_overtime_hours': float(total_overtime)
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class RegularizationRequestView(APIView):
+    """Create attendance regularization request"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user if hasattr(request, 'user') else None
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        serializer = AttendanceRegularizationSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(employee=user)
+            return Response({
+                'message': 'Regularization request submitted successfully',
+                'regularization': serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MyRegularizationsView(APIView):
+    """Get current user's regularization requests"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user if hasattr(request, 'user') else None
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        regularizations = AttendanceRegularization.objects.filter(employee=user)
+        serializer = AttendanceRegularizationSerializer(regularizations, many=True)
+        return Response({
+            'count': regularizations.count(),
+            'regularizations': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class AllRegularizationsView(APIView):
+    """Get all regularization requests (Admin/HR)"""
+    permission_classes = [IsAdminOrHR]
+    
+    def get(self, request):
+        status_filter = request.query_params.get('status', None)
+        employee_id = request.query_params.get('employee_id', None)
+        
+        regularizations = AttendanceRegularization.objects.select_related('employee', 'reviewed_by').all()
+        
+        if status_filter:
+            regularizations = regularizations.filter(status=status_filter.upper())
+        if employee_id:
+            regularizations = regularizations.filter(employee__id=employee_id)
+        
+        serializer = AttendanceRegularizationSerializer(regularizations, many=True)
+        return Response({
+            'count': regularizations.count(),
+            'regularizations': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class RegularizationApprovalView(APIView):
+    """Approve or reject regularization request (Admin/HR)"""
+    permission_classes = [IsAdminOrHR]
+    
+    def post(self, request, pk):
+        regularization = get_object_or_404(AttendanceRegularization, pk=pk)
+        
+        action = request.data.get('action')  # 'approve' or 'reject'
+        
+        if action not in ['approve', 'reject']:
+            return Response({
+                'error': 'Invalid action. Use "approve" or "reject"'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if regularization.status != 'PENDING':
+            return Response({
+                'error': 'Regularization already processed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        regularization.status = 'APPROVED' if action == 'approve' else 'REJECTED'
+        regularization.reviewed_by = request.user
+        regularization.reviewed_at = timezone.now()
+        regularization.save()
+        
+        # If approved, update the attendance record
+        if action == 'approve':
+            attendance, created = Attendance.objects.get_or_create(
+                employee=regularization.employee,
+                date=regularization.date,
+                defaults={
+                    'check_in_time': regularization.requested_check_in,
+                    'check_out_time': regularization.requested_check_out,
+                    'status': 'PRESENT'
+                }
+            )
+            
+            if not created:
+                # Update existing attendance
+                if regularization.requested_check_in:
+                    attendance.check_in_time = regularization.requested_check_in
+                if regularization.requested_check_out:
+                    attendance.check_out_time = regularization.requested_check_out
+                
+                # Recalculate hours and flags
+                attendance.calculate_working_hours()
+                attendance.check_late_arrival()
+                attendance.check_early_departure()
+                attendance.save()
+        
+        serializer = AttendanceRegularizationSerializer(regularization)
+        return Response({
+            'message': f'Regularization {action}d successfully',
+            'regularization': serializer.data
+        }, status=status.HTTP_200_OK)

@@ -1,13 +1,16 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .models import Leave
 from .serializers import LeaveSerializer, LeaveApprovalSerializer
+from users.permissions import IsAdminOrHR, CanApproveLeaves, IsOwnerOrAdmin
 
 
 class ApplyLeaveView(APIView):
     """Apply for leave"""
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -26,6 +29,7 @@ class ApplyLeaveView(APIView):
 
 class MyLeavesView(APIView):
     """Get current user's leave applications"""
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -58,6 +62,7 @@ class MyLeavesView(APIView):
 
 class AllLeavesView(APIView):
     """Get all leave applications (Admin/HR/Manager)"""
+    permission_classes = [IsAdminOrHR]
     
     def get(self, request):
         # Filter parameters
@@ -89,6 +94,7 @@ class AllLeavesView(APIView):
 
 class LeaveDetailView(APIView):
     """Get, update, or delete specific leave application"""
+    permission_classes = [IsOwnerOrAdmin]
     
     def get(self, request, pk):
         leave = get_object_or_404(Leave, pk=pk)
@@ -130,6 +136,7 @@ class LeaveDetailView(APIView):
 
 class LeaveApprovalView(APIView):
     """Approve or reject leave application (Admin/HR/Manager)"""
+    permission_classes = [CanApproveLeaves]
     
     def post(self, request, pk):
         leave = get_object_or_404(Leave, pk=pk)
