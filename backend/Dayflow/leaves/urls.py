@@ -4,7 +4,8 @@ from .views import (
     MyLeavesView,
     AllLeavesView,
     LeaveDetailView,
-    LeaveApprovalView
+    LeaveApprovalView,
+    LeaveCancelView
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path('all/', AllLeavesView.as_view(), name='all-leaves'),
     path('<int:pk>/', LeaveDetailView.as_view(), name='leave-detail'),
     path('<int:pk>/approve/', LeaveApprovalView.as_view(), name='leave-approval'),
+    path('<int:pk>/cancel/', LeaveCancelView.as_view(), name='leave-cancel'),
 ]
