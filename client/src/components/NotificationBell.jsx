@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bell, Check, X, Filter } from "lucide-react";
 import { notificationsAPI } from "../services";
 import { cn } from "../utils/cn";
+import { useToast } from "./Toast";
 
 const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
 const CHIP_BG = "bg-[#fef4f7]";
@@ -11,6 +12,10 @@ export const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const { pushToast } = useToast();
+  const notifiedErrorRef = useRef(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -21,13 +26,30 @@ export const NotificationBell = () => {
 
   const fetchNotifications = async () => {
     try {
-      const params = filter === "unread" ? { unread: true } : {};
-      const data = await notificationsAPI.getMyNotifications(params);
-      setNotifications(data);
-      setUnreadCount(data.filter((n) => !n.is_read).length);
+      setLoading(true);
+      setError("");
+      const params = filter === "unread" ? { unread_only: true } : {};
+      const response = await notificationsAPI.getMyNotifications(params);
+      // Backend returns { count, unread_count, notifications }
+      const notificationsData = response?.notifications || response || [];
+      const unreadCountData = response?.unread_count ?? 0;
+      setNotifications(notificationsData);
+      setUnreadCount(unreadCountData);
+      notifiedErrorRef.current = false;
     } catch (err) {
       console.error("Failed to fetch notifications:", err);
+      setError("Unable to load notifications.");
+      setNotifications([]);
+      if (!notifiedErrorRef.current) {
+        pushToast({
+          title: "Notifications not available",
+          description: "We could not refresh notifications. Please retry.",
+          variant: "error",
+        });
+        notifiedErrorRef.current = true;
+      }
     }
+    setLoading(false);
   };
 
   const markAllRead = async () => {
@@ -35,8 +57,14 @@ export const NotificationBell = () => {
       await notificationsAPI.markAllRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
+      pushToast({ title: "Marked all as read", variant: "success" });
     } catch (err) {
       console.error("Failed to mark all as read:", err);
+      pushToast({
+        title: "Could not mark all",
+        description: "Please try again in a moment.",
+        variant: "error",
+      });
     }
   };
 
@@ -44,8 +72,14 @@ export const NotificationBell = () => {
     try {
       await notificationsAPI.deleteNotification(id);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
+      pushToast({ title: "Notification removed", variant: "success" });
     } catch (err) {
       console.error("Failed to delete notification:", err);
+      pushToast({
+        title: "Delete failed",
+        description: "We could not delete this notification.",
+        variant: "error",
+      });
     }
   };
 
@@ -89,6 +123,13 @@ export const NotificationBell = () => {
               </h3>
               <div className="flex gap-2">
                 <button
+                  onClick={fetchNotifications}
+                  disabled={loading}
+                  className="rounded-xl bg-[#fef4f7] px-3 py-1 text-xs text-[#75516c] hover:bg-[#f6e5ed] disabled:opacity-50"
+                >
+                  Refresh
+                </button>
+                <button
                   onClick={() => setFilter(filter === "all" ? "unread" : "all")}
                   className={cn(
                     "rounded-xl px-3 py-1 text-xs transition",
@@ -113,7 +154,20 @@ export const NotificationBell = () => {
             </div>
 
             <div className="max-h-96 overflow-y-auto">
-              {notifications.length > 0 ? (
+              {error ? (
+                <div className="p-8 text-center text-sm text-red-600">
+                  {error}
+                </div>
+              ) : loading ? (
+                <div className="space-y-2 p-4">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="h-16 animate-pulse rounded-2xl bg-[#fef4f7]"
+                    />
+                  ))}
+                </div>
+              ) : notifications.length > 0 ? (
                 notifications.map((notif) => (
                   <div
                     key={notif.id}

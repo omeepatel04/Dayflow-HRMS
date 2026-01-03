@@ -47,7 +47,17 @@ export const leavesAPI = {
    * @param {Object} data - { is_approved, approver_remarks }
    */
   async approveLeave(id, data) {
-    const response = await api.post(API_ENDPOINTS.leaves.approve(id), data);
+    const payload = data?.status
+      ? {
+          status: data.status.toUpperCase(),
+          admin_comment: data.admin_comment,
+        }
+      : {
+          status: data?.is_approved ? "APPROVED" : "REJECTED",
+          admin_comment: data?.approver_remarks,
+        };
+
+    const response = await api.post(API_ENDPOINTS.leaves.approve(id), payload);
     return response.data;
   },
 

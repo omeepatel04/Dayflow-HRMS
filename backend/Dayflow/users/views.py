@@ -70,12 +70,15 @@ class EmployeeProfileView(APIView):
         if not user or not user.is_authenticated:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
         
-        try:
-            profile = user.profile
-            serializer = EmployeeProfileSerializer(profile)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except EmployeeProfile.DoesNotExist:
-            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        # Auto-create profile if it doesn't exist
+        profile, created = EmployeeProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                'full_name': f"{user.first_name} {user.last_name}".strip() or user.username,
+            }
+        )
+        serializer = EmployeeProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     def put(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -145,8 +148,8 @@ class UserDetailView(APIView):
 
 
 class EmployeeListView(APIView):
-    """List all employees with profiles"""
-    permission_classes = [IsAdminOrHR]
+    """List all employees with profiles (readable by any authenticated user)"""
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         department = request.query_params.get('department', None)

@@ -16,15 +16,26 @@ export const useAttendance = () => {
   const fetchTodayAttendance = useCallback(async () => {
     try {
       const today = new Date();
-      const params = {
-        start_date: today.toISOString().split("T")[0],
-        end_date: today.toISOString().split("T")[0],
-      };
+      const todayStr = today.toISOString().split("T")[0];
+      const params = { from_date: todayStr, to_date: todayStr };
 
       const response = await attendanceAPI.getMyAttendance(params);
+      // Backend returns { count, attendance }, extract attendance array
+      const attendanceData = response?.attendance || response || [];
 
-      if (response.length > 0) {
-        const attendance = response[0];
+      // Prefer today's record; otherwise fall back to most recent
+      const attendance =
+        attendanceData.find((item) => item.date === todayStr) ||
+        attendanceData
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(`${a.date}T${a.check_in_time || "00:00"}`) -
+              new Date(`${b.date}T${b.check_in_time || "00:00"}`)
+          )
+          .pop();
+
+      if (attendance) {
         setTodayAttendance(attendance);
 
         // Determine status based on check_out_time
@@ -58,10 +69,12 @@ export const useAttendance = () => {
       setError(null);
 
       const response = await attendanceAPI.checkIn();
+      // Backend returns { message, attendance }
+      const attendance = response?.attendance || response;
 
-      setTodayAttendance(response);
+      setTodayAttendance(attendance);
       setStatus("checked_in");
-      setHistory([{ type: "check_in", timestamp: response.check_in_time }]);
+      setHistory([{ type: "check_in", timestamp: attendance.check_in_time }]);
 
       return { success: true, data: response };
     } catch (err) {
@@ -70,6 +83,14 @@ export const useAttendance = () => {
         err.response?.data?.error ||
         "Check-in failed";
       setError(errorMessage);
+
+      // If backend says we're already checked in, reflect that immediately
+      if (errorMessage.toLowerCase().includes("already checked in")) {
+        setStatus("checked_in");
+      }
+
+      // Refresh status to reflect any existing record (e.g., already checked in)
+      await fetchTodayAttendance();
       return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
@@ -83,12 +104,14 @@ export const useAttendance = () => {
       setError(null);
 
       const response = await attendanceAPI.checkOut();
+      // Backend returns { message, attendance }
+      const attendance = response?.attendance || response;
 
-      setTodayAttendance(response);
+      setTodayAttendance(attendance);
       setStatus("checked_out");
       setHistory((prev) => [
         ...prev,
-        { type: "check_out", timestamp: response.check_out_time },
+        { type: "check_out", timestamp: attendance.check_out_time },
       ]);
 
       return { success: true, data: response };
