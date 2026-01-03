@@ -8,7 +8,10 @@ from .views import (
     EmployeeListView,
     UserListView,
     UserDetailView,
-    LogoutView
+    LogoutView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
+    ChangePasswordView
 )
 
 urlpatterns = [
@@ -17,6 +20,11 @@ urlpatterns = [
     path('login/', CustomTokenObtainPairView.as_view(), name='token-obtain-pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
+    
+    # Password Management
+    path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     
     # Profiles
     path('profile/', UserProfileView.as_view(), name='user-profile'),

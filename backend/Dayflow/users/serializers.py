@@ -41,5 +41,5 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployeeProfile
         fields = ['id', 'user', 'full_name', 'phone', 'address', 'profile_picture', 
-                  'job_title', 'department', 'date_of_joining']
+                  'job_title', 'department', 'date_of_joining', 'resume', 'id_proof']
         read_only_fields = ['id']
