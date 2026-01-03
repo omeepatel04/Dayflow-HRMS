@@ -11,9 +11,15 @@ export const notificationsAPI = {
    * @param {Object} params - Query params (unread, notification_type)
    */
   async getMyNotifications(params = {}) {
+    const mappedParams = {
+      unread_only:
+        params.unread_only ?? params.unread ?? params.unreadOnly ?? false,
+      type: params.type || params.notification_type,
+    };
+
     const response = await api.get(
       API_ENDPOINTS.notifications.myNotifications,
-      { params }
+      { params: mappedParams }
     );
     return response.data;
   },

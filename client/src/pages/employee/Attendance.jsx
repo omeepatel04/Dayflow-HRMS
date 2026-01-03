@@ -1,15 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import WorkspaceLayout from "../../components/layout/WorkspaceLayout";
-import { ROUTES } from "../../config/constants";
 import { useAttendance } from "../../hooks/useAttendance";
+import { useAuth } from "../../context/AuthContext";
 import { attendanceAPI } from "../../services";
 import { cn } from "../../utils/cn";
-
-const tabs = [
-  { key: "employees", label: "Employees", path: ROUTES.EMPLOYEE_DASHBOARD },
-  { key: "attendance", label: "Attendance", path: ROUTES.EMPLOYEE_ATTENDANCE },
-  { key: "timeoff", label: "Time Off", path: ROUTES.EMPLOYEE_TIME_OFF },
-];
+import { EMPLOYEE_TABS, ADMIN_TABS } from "../../config/navigation";
+import { useToast } from "../../components/Toast";
 
 const LABEL_TONE = "text-xs uppercase tracking-[0.35em] text-[#b28fa1]";
 const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
@@ -17,6 +13,7 @@ const CHIP_BG = "bg-[#fef4f7]";
 const SUB_TEXT = "text-sm text-[#7f5a6f]";
 
 const AttendancePage = () => {
+  const { isAdminOrHR, user } = useAuth();
   const attendance = useAttendance();
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [summary, setSummary] = useState({
@@ -25,21 +22,34 @@ const AttendancePage = () => {
     absences: "0 days",
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const { pushToast } = useToast();
+
+  const navTabs = useMemo(
+    () => (isAdminOrHR ? ADMIN_TABS : EMPLOYEE_TABS),
+    [isAdminOrHR]
+  );
+
+  const canSelfClock = user?.role !== "ADMIN";
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
       try {
         setLoading(true);
+        setError("");
 
         // Fetch last 7 days of attendance
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 7);
 
-        const records = await attendanceAPI.getMyAttendance({
+        const attendanceResponse = await attendanceAPI.getMyAttendance({
           start_date: startDate.toISOString().split("T")[0],
           end_date: endDate.toISOString().split("T")[0],
         });
+        // Backend returns { count, attendance }, extract attendance array
+        const records =
+          attendanceResponse?.attendance || attendanceResponse || [];
 
         // Transform records to UI format
         const transformedRecords = records.map((record) => {
@@ -100,6 +110,12 @@ const AttendancePage = () => {
         });
       } catch (error) {
         console.error("Failed to fetch attendance:", error);
+        setError("Unable to load attendance right now.");
+        pushToast({
+          title: "Attendance unavailable",
+          description: "We could not refresh your entries.",
+          variant: "error",
+        });
       } finally {
         setLoading(false);
       }
@@ -126,16 +142,138 @@ const AttendancePage = () => {
     <LegendPanel state={attendance.status} history={attendance.history || []} />
   );
 
+  const handleCheckIn = async () => {
+    const result = await attendance.checkIn();
+    if (!result.success) {
+      setError(result.error || "Check-in failed");
+      pushToast({
+        title: "Check-in failed",
+        description: result.error || "Please try again.",
+        variant: "error",
+      });
+    } else {
+      setError("");
+      attendance.refetch();
+      pushToast({
+        title: "Checked in",
+        description: "Enjoy your workday.",
+        variant: "success",
+      });
+    }
+  };
+
+  const handleCheckOut = async () => {
+    const result = await attendance.checkOut();
+    if (!result.success) {
+      setError(result.error || "Check-out failed");
+      pushToast({
+        title: "Check-out failed",
+        description: result.error || "Please try again.",
+        variant: "error",
+      });
+    } else {
+      setError("");
+      attendance.refetch();
+      pushToast({
+        title: "Checked out",
+        description: "We saved your hours.",
+        variant: "success",
+      });
+    }
+  };
+
   return (
     <WorkspaceLayout
       title="Attendance & Visibility"
       description="Track your weekly rhythm, verify hours, and ensure payroll accuracy before every cycle."
-      tabs={tabs}
+      tabs={navTabs}
       activeTab="attendance"
       sidebar={sidebar}
       statusIndicator={attendance.status}
     >
       <div className="space-y-6">
+        {canSelfClock && (
+          <div className="glass-panel p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className={LABEL_TONE}>Status</p>
+                <h3 className="text-lg font-semibold text-[#2f1627]">
+                  {attendance.status === "checked_in"
+                    ? "You are checked in"
+                    : "You are checked out"}
+                </h3>
+                <p className={SUB_TEXT}>
+                  Stay within your shift window to keep payroll accurate.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCheckIn}
+                  disabled={
+                    attendance.loading || attendance.status === "checked_in"
+                  }
+                  className={cn(
+                    "rounded-2xl px-4 py-2 text-sm font-semibold",
+                    attendance.status === "checked_in"
+                      ? "bg-[#fef4f7] text-[#c2a4b4]"
+                      : "bg-[#2f9c74] text-white hover:bg-[#278363]"
+                  )}
+                >
+                  Check In
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCheckOut}
+                  disabled={
+                    attendance.loading || attendance.status !== "checked_in"
+                  }
+                  className={cn(
+                    "rounded-2xl px-4 py-2 text-sm font-semibold",
+                    attendance.status !== "checked_in"
+                      ? "bg-[#fef4f7] text-[#c2a4b4]"
+                      : "bg-[#d9546d] text-white hover:bg-[#c34b60]"
+                  )}
+                >
+                  Check Out
+                </button>
+              </div>
+            </div>
+            {attendance.lastCheckIn || attendance.lastCheckOut ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 text-sm text-[#2f1627]">
+                <div className={cn("rounded-2xl p-3", BORDER_SOFT, CHIP_BG)}>
+                  <p className={LABEL_TONE}>Last check-in</p>
+                  <p className="mt-1">
+                    {attendance.lastCheckIn
+                      ? new Date(attendance.lastCheckIn).toLocaleTimeString(
+                          [],
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "—"}
+                  </p>
+                </div>
+                <div className={cn("rounded-2xl p-3", BORDER_SOFT, CHIP_BG)}>
+                  <p className={LABEL_TONE}>Last check-out</p>
+                  <p className="mt-1">
+                    {attendance.lastCheckOut
+                      ? new Date(attendance.lastCheckOut).toLocaleTimeString(
+                          [],
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+
         <div className="grid gap-4 md:grid-cols-3">
           {summaryCards.map((item) => (
             <div key={item.label} className="glass-panel p-5">
@@ -147,6 +285,12 @@ const AttendancePage = () => {
             </div>
           ))}
         </div>
+
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         {loading ? (
           <div className="glass-panel p-6">

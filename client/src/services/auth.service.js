@@ -66,7 +66,6 @@ export const authAPI = {
     const response = await api.post(API_ENDPOINTS.auth.changePassword, {
       old_password: data.oldPassword,
       new_password: data.newPassword,
-      confirm_password: data.confirmPassword,
     });
     return response.data;
   },
@@ -86,9 +85,9 @@ export const authAPI = {
    */
   async confirmPasswordReset(data) {
     const response = await api.post(API_ENDPOINTS.auth.passwordResetConfirm, {
+      uid: data.uid,
       token: data.token,
       new_password: data.newPassword,
-      confirm_password: data.confirmPassword,
     });
     return response.data;
   },
@@ -100,7 +99,7 @@ export const authAPI = {
     const formData = new FormData();
     formData.append("profile_picture", file);
 
-    const response = await api.patch(
+    const response = await api.put(
       API_ENDPOINTS.auth.employeeProfile,
       formData,
       {
@@ -120,7 +119,7 @@ export const authAPI = {
     if (data.resume) formData.append("resume", data.resume);
     if (data.idProof) formData.append("id_proof", data.idProof);
 
-    const response = await api.patch(
+    const response = await api.put(
       API_ENDPOINTS.auth.employeeProfile,
       formData,
       {

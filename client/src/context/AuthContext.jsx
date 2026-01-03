@@ -16,10 +16,16 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 
       if (storedUser && token) {
+        setUser(JSON.parse(storedUser));
         try {
           // Validate token by fetching profile
           const profile = await authAPI.getProfile();
-          setUser(profile);
+          const normalized = normalizeUser(profile);
+          setUser(normalized);
+          localStorage.setItem(
+            STORAGE_KEYS.USER_DATA,
+            JSON.stringify(normalized)
+          );
         } catch (err) {
           // Token invalid, clear storage
           console.error("Token validation failed:", err);
@@ -43,18 +49,17 @@ export const AuthProvider = ({ children }) => {
       // Store tokens
       localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.access);
       localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refresh);
+      let profile = null;
+      try {
+        profile = await authAPI.getProfile();
+      } catch (profileError) {
+        console.warn(
+          "Profile fetch after login failed, using login payload:",
+          profileError
+        );
+      }
 
-      // Store user data
-      const userData = {
-        id: response.user.id,
-        email: response.user.email,
-        employee_id: response.user.employee_id,
-        role: response.user.role,
-        first_name: response.user.first_name,
-        last_name: response.user.last_name,
-        full_name: response.user.full_name,
-      };
-
+      const userData = normalizeUser(profile || response.user || response);
       localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
       setUser(userData);
 
@@ -130,13 +135,32 @@ export const AuthProvider = ({ children }) => {
     loading,
     error,
     isAuthenticated: !!user,
-    isAdmin: user?.role === "admin",
-    isHR: user?.role === "hr_officer",
-    isAdminOrHR: user?.role === "admin" || user?.role === "hr_officer",
-    isEmployee: user?.role === "employee",
+    isAdmin: user?.role === "ADMIN",
+    isHR: user?.role === "HR",
+    isAdminOrHR: user?.role === "ADMIN" || user?.role === "HR",
+    isEmployee: user?.role === "EMPLOYEE",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+const normalizeUser = (raw) => {
+  if (!raw) return null;
+
+  const user = raw.user || raw;
+  return {
+    id: user.id,
+    email: user.email,
+    employee_id: user.employee_id,
+    role: user.role,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    full_name:
+      user.full_name ||
+      `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+    phone: user.phone,
+    department: user.department,
+  };
 };
 
 export const useAuth = () => {

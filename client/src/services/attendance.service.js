@@ -101,9 +101,13 @@ export const attendanceAPI = {
    * @param {Object} data - { is_approved, admin_remarks }
    */
   async updateRegularization(id, data) {
+    const payload = data?.action
+      ? { action: data.action }
+      : { action: data?.is_approved ? "approve" : "reject" };
+
     const response = await api.post(
       API_ENDPOINTS.attendance.regularizationApproval(id),
-      data
+      payload
     );
     return response.data;
   },

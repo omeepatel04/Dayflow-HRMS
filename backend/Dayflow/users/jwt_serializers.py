@@ -4,6 +4,7 @@ Adds custom claims like role and employee_id to JWT tokens
 """
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.contrib.auth import get_user_model
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -32,6 +33,23 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         """
         Validate credentials and return tokens with user data
         """
+        # Allow login via username, email, or employee_id by normalizing to username
+        identifier = attrs.get(self.username_field)
+        if identifier:
+            User = get_user_model()
+            try:
+                # Match by email
+                user = User.objects.filter(email__iexact=identifier).first()
+                # If not found by email, try employee_id
+                if not user:
+                    user = User.objects.filter(employee_id__iexact=identifier).first()
+                # If found, replace the identifier with actual username
+                if user:
+                    attrs[self.username_field] = user.get_username()
+            except Exception:
+                # Fallback to default behavior if lookup fails
+                pass
+
         data = super().validate(attrs)
         
         # Add user information to response
