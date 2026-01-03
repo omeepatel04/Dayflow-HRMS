@@ -1,28 +1,40 @@
-import { useMemo, useState } from 'react';
-import { CalendarDays, Plus, MessageCircle } from 'lucide-react';
-import WorkspaceLayout from '../../components/layout/WorkspaceLayout';
-import { ROUTES } from '../../config/constants';
-import { leaveRequests, timeOffBalance } from '../../data/mockData';
-import { useAttendance } from '../../hooks/useAttendance';
-import { cn } from '../../utils/cn';
+import { useMemo, useState, useEffect } from "react";
+import { CalendarDays, Plus, MessageCircle } from "lucide-react";
+import WorkspaceLayout from "../../components/layout/WorkspaceLayout";
+import { ROUTES } from "../../config/constants";
+import { useAttendance } from "../../hooks/useAttendance";
+import { leavesAPI } from "../../services";
+import { cn } from "../../utils/cn";
 
 const tabs = [
-  { key: 'employees', label: 'Employees', path: ROUTES.EMPLOYEE_DASHBOARD },
-  { key: 'attendance', label: 'Attendance', path: ROUTES.EMPLOYEE_ATTENDANCE },
-  { key: 'timeoff', label: 'Time Off', path: ROUTES.EMPLOYEE_TIME_OFF },
+  { key: "employees", label: "Employees", path: ROUTES.EMPLOYEE_DASHBOARD },
+  { key: "attendance", label: "Attendance", path: ROUTES.EMPLOYEE_ATTENDANCE },
+  { key: "timeoff", label: "Time Off", path: ROUTES.EMPLOYEE_TIME_OFF },
 ];
 
-const LABEL_TONE = 'text-xs uppercase tracking-[0.35em] text-[#b28fa1]';
-const BORDER_SOFT = 'border-[rgba(117,81,108,0.18)]';
-const CHIP_BG = 'bg-[#fef4f7]';
-const BODY_TEXT = 'text-[#2f1627]';
-const SUB_TEXT = 'text-sm text-[#7f5a6f]';
+const LABEL_TONE = "text-xs uppercase tracking-[0.35em] text-[#b28fa1]";
+const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
+const CHIP_BG = "bg-[#fef4f7]";
+const BODY_TEXT = "text-[#2f1627]";
+const SUB_TEXT = "text-sm text-[#7f5a6f]";
 
 const TimeOffPage = () => {
   const attendance = useAttendance();
-  const [requests, setRequests] = useState(leaveRequests);
-  const [form, setForm] = useState({ type: 'Paid Leave', startDate: '', endDate: '', remarks: '' });
+  const [requests, setRequests] = useState([]);
+  const [leaveBalance, setLeaveBalance] = useState({
+    casual: 12,
+    sick: 7,
+    unpaid: 0,
+  });
+  const [form, setForm] = useState({
+    type: "CASUAL",
+    startDate: "",
+    endDate: "",
+    reason: "",
+  });
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const computedDays = useMemo(() => {
     if (!form.startDate || !form.endDate) return 0;
@@ -32,38 +44,95 @@ const TimeOffPage = () => {
     return Math.max(1, delta + 1);
   }, [form.startDate, form.endDate]);
 
-  const balanceEntries = useMemo(() => (
-    [
-      { key: 'paid', label: 'Paid Leave', gradient: 'from-[#f6cbdc] to-[#dfa7be]' },
-      { key: 'sick', label: 'Sick Leave', gradient: 'from-[#f9dfc5] to-[#f2c4a2]' },
-      { key: 'unpaid', label: 'Unpaid Leave', gradient: 'from-[#efdbf7] to-[#d8b4e5]' },
-    ].map((item) => ({
-      ...item,
-      total: timeOffBalance[item.key].total,
-      used: timeOffBalance[item.key].used,
-    }))
-  ), []);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const leavesData = await leavesAPI.getMyLeaves();
 
-  const pendingRequests = requests.filter((req) => req.status === 'pending');
+        setRequests(
+          leavesData.map((leave) => ({
+            id: leave.id,
+            type: leave.leave_type,
+            startDate: leave.start_date,
+            endDate: leave.end_date,
+            days: leave.days_requested,
+            status: leave.status.toLowerCase(),
+            remarks: leave.reason,
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to fetch leaves:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const handleSubmit = (event) => {
+  const balanceEntries = useMemo(
+    () => [
+      {
+        key: "casual",
+        label: "Casual Leave",
+        gradient: "from-pink-200 to-pink-300",
+        total: 12,
+        used: leaveBalance.casual,
+      },
+      {
+        key: "sick",
+        label: "Sick Leave",
+        gradient: "from-orange-200 to-orange-300",
+        total: 7,
+        used: leaveBalance.sick,
+      },
+      {
+        key: "unpaid",
+        label: "Unpaid Leave",
+        gradient: "from-purple-200 to-purple-300",
+        total: 0,
+        used: leaveBalance.unpaid,
+      },
+    ],
+    [leaveBalance]
+  );
+
+  const pendingRequests = requests.filter((req) => req.status === "pending");
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!form.startDate || !form.endDate) return;
-    setSubmitting(true);
-    const payload = {
-      id: `LV-${Date.now().toString().slice(-4)}`,
-      employeeId: 'DF-091',
-      employeeName: 'Maya Dsouza',
-      status: 'pending',
-      ...form,
-      days: computedDays || 1,
-    };
 
-    setTimeout(() => {
-      setRequests((prev) => [payload, ...prev]);
-      setForm({ type: 'Paid Leave', startDate: '', endDate: '', remarks: '' });
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const result = await leavesAPI.applyLeave({
+        leave_type: form.type,
+        start_date: form.startDate,
+        end_date: form.endDate,
+        reason: form.reason,
+      });
+
+      setRequests((prev) => [
+        {
+          id: result.id,
+          type: result.leave_type,
+          startDate: result.start_date,
+          endDate: result.end_date,
+          days: result.days_requested,
+          status: "pending",
+          remarks: result.reason,
+        },
+        ...prev,
+      ]);
+
+      setForm({ type: "CASUAL", startDate: "", endDate: "", reason: "" });
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to submit leave request");
+    } finally {
       setSubmitting(false);
-    }, 500);
+    }
   };
 
   const sidebar = (
@@ -82,12 +151,15 @@ const TimeOffPage = () => {
       sidebar={sidebar}
       statusIndicator={attendance.status}
       toolbar={
-        <button type="button" className="flex items-center gap-2 rounded-2xl border border-[rgba(117,81,108,0.2)] bg-white/80 px-4 py-2 text-sm text-[#75516c]">
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-2xl border border-[rgba(117,81,108,0.2)] bg-white/80 px-4 py-2 text-sm text-[#75516c]"
+        >
           <MessageCircle className="h-4 w-4" /> Chat with HR
         </button>
       }
     >
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)]">
+      <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-3">
           {balanceEntries.map((item) => (
             <BalanceCard key={item.key} data={item} />
@@ -99,33 +171,52 @@ const TimeOffPage = () => {
             <CalendarDays className="h-5 w-5 text-[#b28fa1]" />
             <div>
               <p className={LABEL_TONE}>Apply for leave</p>
-              <h3 className="text-lg font-semibold text-[#2f1627]">Create a new request</h3>
+              <h3 className="text-lg font-semibold text-[#2f1627]">
+                Create a new request
+              </h3>
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Leave Type">
               <select
                 value={form.type}
-                onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, type: event.target.value }))
+                }
                 className="w-full rounded-2xl border border-[rgba(117,81,108,0.25)] bg-white/95 px-3 py-3 text-sm text-[#2f1627]"
               >
-                <option value="Paid Leave">Paid Leave</option>
-                <option value="Sick Leave">Sick Leave</option>
-                <option value="Unpaid Leave">Unpaid Leave</option>
+                <option value="CASUAL">Casual Leave</option>
+                <option value="SICK">Sick Leave</option>
+                <option value="UNPAID">Unpaid Leave</option>
+                <option value="MATERNITY">Maternity Leave</option>
+                <option value="PATERNITY">Paternity Leave</option>
               </select>
             </Field>
             <Field label="Days">
-              <div className={cn('rounded-2xl px-3 py-3 text-sm text-[#2f1627]', BORDER_SOFT, CHIP_BG)}>
+              <div
+                className={cn(
+                  "rounded-2xl px-3 py-3 text-sm text-[#2f1627]",
+                  BORDER_SOFT,
+                  CHIP_BG
+                )}
+              >
                 {form.startDate && form.endDate
-                  ? `${form.startDate} -> ${form.endDate} (${computedDays || 1} days)`
-                  : 'Select dates'}
+                  ? `${form.startDate} -> ${form.endDate} (${
+                      computedDays || 1
+                    } days)`
+                  : "Select dates"}
               </div>
             </Field>
             <Field label="Start Date">
               <input
                 type="date"
                 value={form.startDate}
-                onChange={(event) => setForm((prev) => ({ ...prev, startDate: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    startDate: event.target.value,
+                  }))
+                }
                 className="w-full rounded-2xl border border-[rgba(117,81,108,0.25)] bg-white/95 px-3 py-3 text-sm text-[#2f1627]"
               />
             </Field>
@@ -133,7 +224,9 @@ const TimeOffPage = () => {
               <input
                 type="date"
                 value={form.endDate}
-                onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, endDate: event.target.value }))
+                }
                 className="w-full rounded-2xl border border-[rgba(117,81,108,0.25)] bg-white/95 px-3 py-3 text-sm text-[#2f1627]"
               />
             </Field>
@@ -141,19 +234,28 @@ const TimeOffPage = () => {
           <Field label="Notes for approver">
             <textarea
               rows={3}
-              value={form.remarks}
-              onChange={(event) => setForm((prev) => ({ ...prev, remarks: event.target.value }))}
+              value={form.reason}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, reason: event.target.value }))
+              }
               className="w-full rounded-2xl border border-[rgba(117,81,108,0.25)] bg-white/95 px-3 py-3 text-sm text-[#2f1627]"
               placeholder="Context, handoffs, escalation details"
+              required
             />
           </Field>
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
           <div className="flex justify-end">
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#75516c] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#6a4a63]"
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#75516c] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#6a4a63] disabled:opacity-50"
             >
-              <Plus className="h-4 w-4" /> Submit Request
+              <Plus className="h-4 w-4" />{" "}
+              {submitting ? "Submitting..." : "Submit Request"}
             </button>
           </div>
         </form>
@@ -162,28 +264,60 @@ const TimeOffPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className={LABEL_TONE}>History</p>
-              <h3 className="text-lg font-semibold text-[#2f1627]">Recent leave requests</h3>
+              <h3 className="text-lg font-semibold text-[#2f1627]">
+                Recent leave requests
+              </h3>
             </div>
-            <span className={cn('rounded-full px-3 py-1 text-xs text-[#75516c]', BORDER_SOFT)}>{requests.length} entries</span>
+            <span
+              className={cn(
+                "rounded-full px-3 py-1 text-xs text-[#75516c]",
+                BORDER_SOFT
+              )}
+            >
+              {requests.length} entries
+            </span>
           </div>
           <div className="mt-4 space-y-3">
-            {requests.map((request) => (
-                <div key={request.id} className={cn('flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm', BORDER_SOFT, CHIP_BG)}>
-                <div className="flex-1">
-                  <p className="font-semibold text-[#2f1627]">{request.type}</p>
-                  <p className="text-xs text-[#8b6b7e]">
-                      {request.startDate}
-                      {' -> '}
-                      {request.endDate}
-                      {' '}
-                      ({request.days} days)
-                  </p>
-                </div>
-                <span className={cn('rounded-full px-3 py-1 text-xs font-semibold', badgeTone[request.status] || 'border border-[rgba(117,81,108,0.2)] text-[#75516c]')}>
-                  {request.status}
-                </span>
+            {loading ? (
+              <div className="py-8 text-center text-sm text-[#7f5a6f]">
+                Loading...
               </div>
-            ))}
+            ) : requests.length > 0 ? (
+              requests.map((request) => (
+                <div
+                  key={request.id}
+                  className={cn(
+                    "flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm",
+                    BORDER_SOFT,
+                    CHIP_BG
+                  )}
+                >
+                  <div className="flex-1">
+                    <p className="font-semibold text-[#2f1627]">
+                      {request.type}
+                    </p>
+                    <p className="text-xs text-[#8b6b7e]">
+                      {request.startDate}
+                      {" -> "}
+                      {request.endDate} ({request.days} days)
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-semibold",
+                      badgeTone[request.status] ||
+                        "border border-[rgba(117,81,108,0.2)] text-[#75516c]"
+                    )}
+                  >
+                    {request.status}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="py-8 text-center text-sm text-[#7f5a6f]">
+                No leave requests yet
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -192,16 +326,26 @@ const TimeOffPage = () => {
 };
 
 const badgeTone = {
-  pending: 'bg-[#fff3e6] text-[#d47f2f] border border-[#f0c59c]',
-  approved: 'bg-[#e6f5ef] text-[#2f9c74] border border-[#b5e1cd]',
-  rejected: 'bg-[#ffe8ed] text-[#d9546d] border border-[#f5bac8]',
+  pending: "bg-[#fff3e6] text-[#d47f2f] border border-[#f0c59c]",
+  approved: "bg-[#e6f5ef] text-[#2f9c74] border border-[#b5e1cd]",
+  rejected: "bg-[#ffe8ed] text-[#d9546d] border border-[#f5bac8]",
 };
 
 const BalanceCard = ({ data }) => (
-  <div className={cn('rounded-3xl border border-transparent bg-gradient-to-br p-5 text-[#2f1627] shadow-xl', data.gradient)}>
+  <div
+    className={cn(
+      "rounded-3xl border border-transparent p-5 text-[#2f1627] shadow-xl",
+      `bg-gradient-to-br ${data.gradient}`
+    )}
+  >
     <p className={LABEL_TONE}>{data.label}</p>
-    <p className="mt-3 text-3xl font-semibold">{data.total - data.used}<span className="text-base text-[#7f5a6f]"> days left</span></p>
-    <p className={SUB_TEXT}>{data.used} used of {data.total}</p>
+    <p className="mt-3 text-3xl font-semibold">
+      {data.total - data.used}
+      <span className="text-base text-[#7f5a6f]"> days left</span>
+    </p>
+    <p className={SUB_TEXT}>
+      {data.used} used of {data.total}
+    </p>
   </div>
 );
 
@@ -229,11 +373,14 @@ const PendingCard = ({ items }) => (
     {items.length ? (
       <div className="space-y-3 text-sm text-[#7f5a6f]">
         {items.map((req) => (
-          <div key={req.id} className={cn('rounded-2xl px-4 py-3', BORDER_SOFT, CHIP_BG)}>
+          <div
+            key={req.id}
+            className={cn("rounded-2xl px-4 py-3", BORDER_SOFT, CHIP_BG)}
+          >
             <p className="font-semibold text-[#2f1627]">{req.type}</p>
             <p className="text-xs text-[#8b6b7e]">
               {req.startDate}
-              {' -> '}
+              {" -> "}
               {req.endDate}
             </p>
           </div>

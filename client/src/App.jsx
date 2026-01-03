@@ -1,13 +1,16 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { ROUTES } from './config/constants';
-import Login from './pages/auth/Login';
-import EmployeeDashboard from './pages/employee/Dashboard';
-import AttendancePage from './pages/employee/Attendance';
-import TimeOffPage from './pages/employee/TimeOff';
-import ProfilePage from './pages/employee/Profile';
-import AdminDashboard from './pages/admin/Dashboard';
-import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import { ROUTES } from "./config/constants";
+import Login from "./pages/auth/Login";
+import EmployeeDashboard from "./pages/employee/Dashboard";
+import AttendancePage from "./pages/employee/Attendance";
+import TimeOffPage from "./pages/employee/TimeOff";
+import ProfilePage from "./pages/employee/Profile";
+import PayrollPage from "./pages/employee/Payroll";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import LeaveManagement from "./pages/admin/LeaveManagement";
+import EmployeeManagement from "./pages/admin/EmployeeManagement";
+import { ProtectedRoute, AdminRoute } from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -15,71 +18,78 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path={ROUTES.LOGIN} element={<Login />} />
-          <Route path={ROUTES.SIGNUP} element={<Navigate to={ROUTES.LOGIN} replace />} />
           <Route
             path={ROUTES.EMPLOYEE_DASHBOARD}
-            element={(
+            element={
               <ProtectedRoute>
                 <EmployeeDashboard />
               </ProtectedRoute>
-            )}
+            }
           />
           <Route
             path={ROUTES.EMPLOYEE_ATTENDANCE}
-            element={(
+            element={
               <ProtectedRoute>
                 <AttendancePage />
               </ProtectedRoute>
-            )}
+            }
           />
           <Route
             path={ROUTES.EMPLOYEE_TIME_OFF}
-            element={(
+            element={
               <ProtectedRoute>
                 <TimeOffPage />
               </ProtectedRoute>
-            )}
+            }
           />
           <Route
             path={ROUTES.EMPLOYEE_PROFILE}
-            element={(
+            element={
               <ProtectedRoute>
                 <ProfilePage />
               </ProtectedRoute>
-            )}
+            }
+          />
+          <Route
+            path="/employee/payroll"
+            element={
+              <ProtectedRoute>
+                <PayrollPage />
+              </ProtectedRoute>
+            }
           />
 
           <Route
             path={ROUTES.ADMIN_DASHBOARD}
-            element={(
+            element={
               <AdminRoute>
                 <AdminDashboard />
               </AdminRoute>
-            )}
+            }
           />
           <Route
             path={ROUTES.ADMIN_EMPLOYEES}
-            element={(
+            element={
               <AdminRoute>
-                <AdminDashboard />
+                <EmployeeManagement />
               </AdminRoute>
-            )}
+            }
           />
           <Route
             path={ROUTES.ADMIN_ATTENDANCE}
-            element={(
+            element={
               <AdminRoute>
-                <AdminDashboard />
+                <AttendancePage />
               </AdminRoute>
-            )}
+            }
           />
           <Route
             path={ROUTES.ADMIN_TIME_OFF}
-            element={(
+            element={
               <AdminRoute>
-                <AdminDashboard />
+                <LeaveManagement />
               </AdminRoute>
-            )}
+            }
           />
 
           <Route path="/" element={<Navigate to={ROUTES.LOGIN} replace />} />

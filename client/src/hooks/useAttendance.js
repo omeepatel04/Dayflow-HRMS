@@ -1,80 +1,127 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from "react";
+import { attendanceAPI } from "../services";
 
-const STORAGE_KEY = 'dayflow:attendance';
-const initialSnapshot = {
-    status: 'checked_out',
-    lastCheckIn: null,
-    lastCheckOut: null,
-    history: [],
-};
-
+/**
+ * Custom hook for attendance management
+ * Handles check-in, check-out, and attendance status
+ */
 export const useAttendance = () => {
-    const [snapshot, setSnapshot] = useState(() => {
-        try {
-            const cached = localStorage.getItem(STORAGE_KEY);
-            return cached ? JSON.parse(cached) : initialSnapshot;
-        } catch (error) {
-            console.warn('Failed to parse attendance cache', error);
-            return initialSnapshot;
+  const [status, setStatus] = useState("checked_out"); // checked_in, checked_out, loading
+  const [history, setHistory] = useState([]);
+  const [todayAttendance, setTodayAttendance] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Fetch today's attendance status
+  const fetchTodayAttendance = useCallback(async () => {
+    try {
+      const today = new Date();
+      const params = {
+        start_date: today.toISOString().split("T")[0],
+        end_date: today.toISOString().split("T")[0],
+      };
+
+      const response = await attendanceAPI.getMyAttendance(params);
+
+      if (response.length > 0) {
+        const attendance = response[0];
+        setTodayAttendance(attendance);
+
+        // Determine status based on check_out_time
+        if (attendance.check_out_time) {
+          setStatus("checked_out");
+          setHistory([
+            { type: "check_in", timestamp: attendance.check_in_time },
+            { type: "check_out", timestamp: attendance.check_out_time },
+          ]);
+        } else {
+          setStatus("checked_in");
+          setHistory([
+            { type: "check_in", timestamp: attendance.check_in_time },
+          ]);
         }
-    });
-    const [loading, setLoading] = useState(false);
+      } else {
+        setStatus("checked_out");
+        setTodayAttendance(null);
+        setHistory([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch attendance:", err);
+      setStatus("checked_out");
+    }
+  }, []);
 
-    useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-    }, [snapshot]);
+  // Check-in
+  const checkIn = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    const mutate = (recipe) =>
-        new Promise((resolve) => {
-            setLoading(true);
-            setTimeout(() => {
-                let computed = snapshot;
-                setSnapshot((prev) => {
-                    const patch = typeof recipe === 'function' ? recipe(prev) : recipe;
-                    computed = { ...prev, ...patch };
-                    return computed;
-                });
-                setLoading(false);
-                resolve(computed);
-            }, 650);
-        });
+      const response = await attendanceAPI.checkIn();
 
-    const appendHistory = (entry) => (prev) => ({
-        history: [entry, ...prev.history].slice(0, 6),
-    });
+      setTodayAttendance(response);
+      setStatus("checked_in");
+      setHistory([{ type: "check_in", timestamp: response.check_in_time }]);
 
-    const checkIn = async () => {
-        const timestamp = new Date().toISOString();
-        await mutate((prev) => ({
-            status: 'checked_in',
-            lastCheckIn: timestamp,
-            ...appendHistory({ type: 'check_in', timestamp })(prev),
-        }));
-        return timestamp;
-    };
+      return { success: true, data: response };
+    } catch (err) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Check-in failed";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const checkOut = async () => {
-        const timestamp = new Date().toISOString();
-        await mutate((prev) => ({
-            status: 'checked_out',
-            lastCheckOut: timestamp,
-            ...appendHistory({ type: 'check_out', timestamp })(prev),
-        }));
-        return timestamp;
-    };
+  // Check-out
+  const checkOut = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    const setOnLeave = async () => {
-        await mutate({ status: 'on_leave' });
-    };
+      const response = await attendanceAPI.checkOut();
 
-    return {
-        status: snapshot.status,
-        lastCheckIn: snapshot.lastCheckIn,
-        lastCheckOut: snapshot.lastCheckOut,
-        history: snapshot.history,
-        loading,
-        checkIn,
-        checkOut,
-        setOnLeave,
-    };
+      setTodayAttendance(response);
+      setStatus("checked_out");
+      setHistory((prev) => [
+        ...prev,
+        { type: "check_out", timestamp: response.check_out_time },
+      ]);
+
+      return { success: true, data: response };
+    } catch (err) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Check-out failed";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load attendance status on mount
+  useEffect(() => {
+    fetchTodayAttendance();
+  }, [fetchTodayAttendance]);
+
+  return {
+    status,
+    history,
+    todayAttendance,
+    loading,
+    error,
+    checkIn,
+    checkOut,
+    refetch: fetchTodayAttendance,
+    lastCheckIn: todayAttendance?.check_in_time,
+    lastCheckOut: todayAttendance?.check_out_time,
+    setOnLeave: () => setStatus("on_leave"), // Compatibility
+  };
 };
+
+export default useAttendance;
