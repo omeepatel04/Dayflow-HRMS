@@ -1,15 +1,18 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import date, time
 from .models import Attendance
 from .serializers import AttendanceSerializer
+from users.permissions import IsAdminOrHR, CanModifyAttendance
 
 
 class CheckInView(APIView):
     """Check-in endpoint"""
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -41,6 +44,7 @@ class CheckInView(APIView):
 
 class CheckOutView(APIView):
     """Check-out endpoint"""
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -74,6 +78,7 @@ class CheckOutView(APIView):
 
 class MyAttendanceView(APIView):
     """Get current user's attendance records"""
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -103,6 +108,7 @@ class MyAttendanceView(APIView):
 
 class AllAttendanceView(APIView):
     """Get all attendance records (Admin/HR/Manager)"""
+    permission_classes = [IsAdminOrHR]
     
     def get(self, request):
         # Filter parameters
@@ -131,6 +137,7 @@ class AllAttendanceView(APIView):
 
 class AttendanceDetailView(APIView):
     """Get, update, or delete specific attendance record"""
+    permission_classes = [CanModifyAttendance]
     
     def get(self, request, pk):
         attendance = get_object_or_404(Attendance, pk=pk)

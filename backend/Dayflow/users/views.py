@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 from .models import User, EmployeeProfile
@@ -10,6 +10,7 @@ from .serializers import (
     UserSerializer, UserRegistrationSerializer,
     EmployeeProfileSerializer
 )
+from .permissions import IsAdminOrHR, IsSelfOrAdmin
 
 
 class UserRegistrationView(APIView):
@@ -29,6 +30,7 @@ class UserRegistrationView(APIView):
 
 class UserProfileView(APIView):
     """Get and update current user profile"""
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -55,6 +57,7 @@ class UserProfileView(APIView):
 
 class EmployeeProfileView(APIView):
     """Get and update employee profile"""
+    permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     
     def get(self, request):
@@ -87,6 +90,7 @@ class EmployeeProfileView(APIView):
 
 class UserListView(APIView):
     """List all users (Admin/HR only)"""
+    permission_classes = [IsAdminOrHR]
     
     def get(self, request):
         role_filter = request.query_params.get('role', None)
@@ -109,6 +113,7 @@ class UserListView(APIView):
 
 class UserDetailView(APIView):
     """Get, update, or delete a specific user (Admin/HR only)"""
+    permission_classes = [IsAdminOrHR]
     
     def get(self, request, pk):
         user = get_object_or_404(User, pk=pk)
@@ -136,6 +141,7 @@ class UserDetailView(APIView):
 
 class EmployeeListView(APIView):
     """List all employees with profiles"""
+    permission_classes = [IsAdminOrHR]
     
     def get(self, request):
         department = request.query_params.get('department', None)
@@ -156,6 +162,7 @@ class LogoutView(APIView):
     """
     Logout view - Blacklist the refresh token
     """
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
         try:
