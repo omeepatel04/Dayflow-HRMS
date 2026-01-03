@@ -65,9 +65,3 @@ Django REST API powering Dayflow HRMS: authentication, attendance, leaves, payro
 ## Testing
 
 - Run: `python Dayflow/manage.py test`
-
-## Notes
-
-- Leave types allowed: PAID, SICK, UNPAID, CASUAL
-- Payroll statuses: DRAFT, PROCESSED, PAID
-- Attendance regularization supports approve/reject by HR/Admin
