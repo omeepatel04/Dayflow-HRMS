@@ -35,6 +35,8 @@ class EmployeeProfile(models.Model):
     job_title = models.CharField(max_length=100, blank=True)
     department = models.CharField(max_length=100, blank=True)
     date_of_joining = models.DateField(null=True, blank=True)
+    resume = models.FileField(upload_to='documents/resumes/', null=True, blank=True)
+    id_proof = models.FileField(upload_to='documents/id_proofs/', null=True, blank=True)
     
     class Meta:
         db_table = 'employee_profiles'
