@@ -1,13 +1,16 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .models import Payroll
 from .serializers import PayrollSerializer, PayrollCreateSerializer
+from users.permissions import IsAdminOrHR, ReadOnlyForEmployees
 
 
 class CreatePayrollView(APIView):
     """Create payroll record (Admin/HR only)"""
+    permission_classes = [IsAdminOrHR]
     
     def post(self, request):
         serializer = PayrollCreateSerializer(data=request.data)
@@ -22,6 +25,7 @@ class CreatePayrollView(APIView):
 
 class UpdatePayrollView(APIView):
     """Update payroll record (Admin/HR only)"""
+    permission_classes = [IsAdminOrHR]
     
     def put(self, request, pk):
         payroll = get_object_or_404(Payroll, pk=pk)
@@ -37,6 +41,7 @@ class UpdatePayrollView(APIView):
 
 class MyPayrollView(APIView):
     """Get current user's payroll records"""
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         user = request.user if hasattr(request, 'user') else None
@@ -63,6 +68,7 @@ class MyPayrollView(APIView):
 
 class AllPayrollView(APIView):
     """Get all payroll records (Admin/HR only)"""
+    permission_classes = [IsAdminOrHR]
     
     def get(self, request):
         # Filter parameters
@@ -88,6 +94,7 @@ class AllPayrollView(APIView):
 
 class PayrollDetailView(APIView):
     """Get or delete specific payroll record"""
+    permission_classes = [ReadOnlyForEmployees]
     
     def get(self, request, pk):
         payroll = get_object_or_404(Payroll, pk=pk)

@@ -1,6 +1,5 @@
 # Dayflow HRMS - Backend API
 
-A comprehensive Human Resource Management System built with Django REST Framework and PostgreSQL.
+A comprehensive Human Resource Management System built with Django REST Framework.
 
-**OdooxGCET'26 Virtual Round Project Implementation**
-
+**OdooxGCET'26 Virtual Round**
