@@ -1,0 +1,79 @@
+# ==========================
+# 1. FRONTEND (React/Vite/Node)
+# ==========================
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Production Build Outputs
+dist
+dist-ssr
+build
+
+# Local Environment Files (Security Risk if committed!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage
+
+# ==========================
+# 2. BACKEND (Django/Python)
+# ==========================
+# Python Bytecode (Don't commit these!)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments (Crucial: prevents "It works on my machine" errors)
+venv/
+env/
+.venv/
+.env/
+
+# Django Local Settings & DB
+db.sqlite3
+db.sqlite3-journal
+local_settings.py
+
+# Static & Media Files
+# (We don't commit user uploaded documents/avatars)
+media/
+staticfiles/
+static/
+
+# ==========================
+# 3. SYSTEM & IDE
+# ==========================
+# OS Junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editor Configs (Keep your personal settings out of the shared repo)
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# Vite logs files
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Temporary folders
+tmp/
+.lh
