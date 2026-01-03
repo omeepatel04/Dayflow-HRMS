@@ -23,4 +23,5 @@ urlpatterns = [
     path('leaves/', include('leaves.urls')),
     path('payroll/', include('payroll.urls')),
     path('users/', include('users.urls')),
+    path('dashboard/', include('dashboard.urls')),
 ]
