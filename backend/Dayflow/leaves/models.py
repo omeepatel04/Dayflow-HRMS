@@ -9,6 +9,7 @@ class Leave(models.Model):
         ('PAID', 'Paid Leave'),
         ('SICK', 'Sick Leave'),
         ('UNPAID', 'Unpaid Leave'),
+        ('CASUAL', 'Casual Leave'),
     )
     
     STATUS_CHOICES = (

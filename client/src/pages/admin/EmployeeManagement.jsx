@@ -88,7 +88,9 @@ export default function EmployeeManagement() {
       : /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(formData.password);
 
     if (!formData.first_name || !formData.email || !formData.employee_id) {
-      setError("Please fill in all required fields (first name, email, employee ID).");
+      setError(
+        "Please fill in all required fields (first name, email, employee ID)."
+      );
       return;
     }
 
@@ -98,7 +100,9 @@ export default function EmployeeManagement() {
     }
 
     if (!phoneValid) {
-      setError("Enter a valid phone number (10-15 digits, digits/optional + only).");
+      setError(
+        "Enter a valid phone number (10-15 digits, digits/optional + only)."
+      );
       return;
     }
 
