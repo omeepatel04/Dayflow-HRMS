@@ -1,68 +1,133 @@
+@import "tailwindcss";
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --base: #fdf9fb;
+  --paper: #fffdfd;
+  --shell: #ffffff;
+  --ink: #1f1321;
+  --muted: #7c6576;
+  --surface: rgba(255, 255, 255, 0.85);
+  --border-soft: rgba(117, 81, 108, 0.14);
+  --border-strong: rgba(117, 81, 108, 0.26);
+  --accent: #75516c;
+  --accent-soft: #a9778f;
+  --accent-warm: #c49dae;
+  --success: #2f9c74;
+  --warning: #d47f2f;
+  --danger: #d9546d;
+  --font-primary: "Space Grotesk", "IBM Plex Sans", sans-serif;
+  color-scheme: light;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  min-height: 100vh;
+  font-family: var(--font-primary);
+  background-color: var(--base);
+  background-image:
+    radial-gradient(circle at 12% 15%, rgba(197, 157, 174, 0.35), transparent 45%),
+    radial-gradient(circle at 85% 10%, rgba(255, 188, 210, 0.25), transparent 35%),
+    linear-gradient(160deg, #fffefe 0%, #f5e8ef 55%, #fef7f9 100%);
+  color: var(--ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(transparent 96%, rgba(117, 81, 108, 0.08) 96%),
+    linear-gradient(90deg, transparent 96%, rgba(117, 81, 108, 0.06) 96%);
+  background-size: 160px 160px;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: -2;
+}
+
+#root {
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.text-muted {
+  color: rgba(33, 20, 31, 0.62);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+.glass-panel {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 1.5rem;
+  box-shadow: 0 18px 50px rgba(117, 81, 108, 0.08);
+  backdrop-filter: blur(22px);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border-soft);
+  background: rgba(117, 81, 108, 0.08);
+  color: var(--muted);
+}
+
+.status-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  display: inline-flex;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+}
+
+@media (min-width: 1280px) {
+  .workspace-grid.has-rail {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
   }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(117, 81, 108, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent), var(--accent-soft));
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
 }
