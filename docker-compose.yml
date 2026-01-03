@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Django Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dayflow_backend
+    command: >
+      sh -c "python Dayflow/manage.py migrate &&
+             python Dayflow/manage.py runserver 0.0.0.0:8000"
+    environment:
+      DEBUG: ${DEBUG:-True}
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-iu2%h-@3i%g=mi_nda=h=i1&&zf@+2tu%uqf)f2@ri635*2$$-}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.sqlite3}
+      DB_NAME: ${DB_NAME:-./db.sqlite3}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+    networks:
+      - dayflow_network
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: dayflow_frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app/client
+      - /app/client/node_modules
+    depends_on:
+      - backend
+    networks:
+      - dayflow_network
+    restart: unless-stopped
+
+networks:
+  dayflow_network:
+    driver: bridge
