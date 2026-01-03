@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Bell,
   Circle,
   Search,
   Sparkles,
@@ -9,26 +8,27 @@ import {
   User2,
   LogOut,
   Settings,
-} from 'lucide-react';
-import { cn } from '../../utils/cn';
-import { useAuth } from '../../context/AuthContext';
-import { ROUTES } from '../../config/constants';
+} from "lucide-react";
+import { cn } from "../../utils/cn";
+import { useAuth } from "../../context/AuthContext";
+import { ROUTES } from "../../config/constants";
+import NotificationBell from "../NotificationBell";
 
 const statusAccent = {
-  checked_in: 'bg-emerald-400',
-  present: 'bg-emerald-400',
-  checked_out: 'bg-rose-500',
-  on_leave: 'bg-amber-400',
-  remote: 'bg-sky-400',
-  default: 'bg-slate-500',
+  checked_in: "bg-emerald-400",
+  present: "bg-emerald-400",
+  checked_out: "bg-rose-500",
+  on_leave: "bg-amber-400",
+  remote: "bg-sky-400",
+  default: "bg-slate-500",
 };
 
 const indicatorLabel = {
-  checked_in: 'Checked In',
-  present: 'Present',
-  checked_out: 'Checked Out',
-  on_leave: 'On Leave',
-  remote: 'Remote',
+  checked_in: "Checked In",
+  present: "Present",
+  checked_out: "Checked Out",
+  on_leave: "On Leave",
+  remote: "Remote",
 };
 
 const WorkspaceLayout = ({
@@ -38,10 +38,10 @@ const WorkspaceLayout = ({
   activeTab,
   children,
   sidebar,
-  searchPlaceholder = 'Search people, pods, skills',
+  searchPlaceholder = "Search people, pods, skills",
   searchValue,
   onSearch,
-  statusIndicator = 'checked_out',
+  statusIndicator = "checked_out",
   tag,
   toolbar,
 }) => {
@@ -50,15 +50,15 @@ const WorkspaceLayout = ({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const indicator = statusAccent[statusIndicator] || statusAccent.default;
-  const indicatorText = indicatorLabel[statusIndicator] || 'Offline';
+  const indicatorText = indicatorLabel[statusIndicator] || "Offline";
 
   const profileInitials = useMemo(() => {
-    if (!user?.name) return 'DF';
+    if (!user?.name) return "DF";
     return user.name
-      .split(' ')
+      .split(" ")
       .map((token) => token[0])
       .slice(0, 2)
-      .join('');
+      .join("");
   }, [user?.name]);
 
   const handleTab = (path) => {
@@ -93,8 +93,12 @@ const WorkspaceLayout = ({
                     DF
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-[#9c7d90]">Dayflow</p>
-                    <p className="text-sm font-semibold text-[#3b1f2f]">HR Workbench</p>
+                    <p className="text-xs uppercase tracking-[0.3em] text-[#9c7d90]">
+                      Dayflow
+                    </p>
+                    <p className="text-sm font-semibold text-[#3b1f2f]">
+                      HR Workbench
+                    </p>
                   </div>
                 </button>
                 {tabs?.length ? (
@@ -105,10 +109,10 @@ const WorkspaceLayout = ({
                         type="button"
                         onClick={() => handleTab(tab.path)}
                         className={cn(
-                          'flex-1 rounded-full px-4 py-2 text-sm font-medium transition',
+                          "flex-1 rounded-full px-4 py-2 text-sm font-medium transition",
                           activeTab === tab.key
-                            ? 'bg-[#75516c] text-white shadow-[0_12px_20px_rgba(117,81,108,0.25)]'
-                            : 'text-[#75516c]/70 hover:text-[#75516c]'
+                            ? "bg-[#75516c] text-white shadow-[0_12px_20px_rgba(117,81,108,0.25)]"
+                            : "text-[#75516c]/70 hover:text-[#75516c]"
                         )}
                       >
                         {tab.label}
@@ -134,18 +138,11 @@ const WorkspaceLayout = ({
                 </div>
 
                 <div className="flex items-center gap-2 rounded-full border border-[rgba(117,81,108,0.2)] bg-white/70 px-3 py-1 text-[11px] uppercase tracking-[0.25em] text-[#75516c]">
-                  <span className={cn('status-dot', indicator)} />
+                  <span className={cn("status-dot", indicator)} />
                   {indicatorText}
                 </div>
 
-                <button
-                  type="button"
-                  className="relative rounded-2xl border border-[rgba(117,81,108,0.2)] bg-white/70 p-2 text-[#75516c] transition hover:border-[rgba(117,81,108,0.35)]"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute -right-0.5 -top-0.5 inline-flex h-3 w-3 rounded-full bg-[#d9546d]" />
-                </button>
+                <NotificationBell />
 
                 <div className="relative">
                   <button
@@ -165,8 +162,12 @@ const WorkspaceLayout = ({
                       </div>
                     )}
                     <div className="hidden text-left sm:block">
-                      <p className="text-xs uppercase tracking-widest text-[#b28fa1]">Now logged in</p>
-                      <p className="text-sm font-semibold text-[#3b1f2f]">{user?.name || 'Guest'}</p>
+                      <p className="text-xs uppercase tracking-widest text-[#b28fa1]">
+                        Now logged in
+                      </p>
+                      <p className="text-sm font-semibold text-[#3b1f2f]">
+                        {user?.name || "Guest"}
+                      </p>
                     </div>
                     <ChevronDown className="h-4 w-4 text-[#b28fa1]" />
                   </button>
@@ -200,8 +201,10 @@ const WorkspaceLayout = ({
                     type="button"
                     onClick={() => handleTab(tab.path)}
                     className={cn(
-                      'rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#75516c]/80',
-                      activeTab === tab.key ? 'border-[#75516c] text-[#75516c]' : 'border-[rgba(117,81,108,0.2)]'
+                      "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#75516c]/80",
+                      activeTab === tab.key
+                        ? "border-[#75516c] text-[#75516c]"
+                        : "border-[rgba(117,81,108,0.2)]"
                     )}
                   >
                     {tab.label}
@@ -229,19 +232,30 @@ const WorkspaceLayout = ({
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex-1">
                 {tag ? (
-                  <span className="pill bg-[#fdf1f5] text-[#75516c]">{tag}</span>
+                  <span className="pill bg-[#fdf1f5] text-[#75516c]">
+                    {tag}
+                  </span>
                 ) : null}
-                {title ? <h1 className="mt-3 text-2xl font-semibold text-[#2f1627] md:text-3xl">{title}</h1> : null}
-                {description ? <p className="mt-2 max-w-2xl text-sm text-[#836577]">{description}</p> : null}
+                {title ? (
+                  <h1 className="mt-3 text-2xl font-semibold text-[#2f1627] md:text-3xl">
+                    {title}
+                  </h1>
+                ) : null}
+                {description ? (
+                  <p className="mt-2 max-w-2xl text-sm text-[#836577]">
+                    {description}
+                  </p>
+                ) : null}
               </div>
-              {toolbar ? <div className="flex items-center gap-3 text-[#2f1627]">{toolbar}</div> : null}
+              {toolbar ? (
+                <div className="flex items-center gap-3 text-[#2f1627]">
+                  {toolbar}
+                </div>
+              ) : null}
             </div>
 
             <div
-              className={cn(
-                'workspace-grid mt-8',
-                sidebar ? 'has-rail' : null
-              )}
+              className={cn("workspace-grid mt-8", sidebar ? "has-rail" : null)}
             >
               <div className="space-y-6">{children}</div>
               {sidebar ? <aside className="space-y-6">{sidebar}</aside> : null}

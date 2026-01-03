@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useMemo, useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
   Plane,
@@ -10,82 +10,167 @@ import {
   Phone,
   Building2,
   Clock3,
-} from 'lucide-react';
-import WorkspaceLayout from '../../components/layout/WorkspaceLayout';
-import { employees, alerts } from '../../data/mockData';
-import { ROUTES } from '../../config/constants';
-import { useAttendance } from '../../hooks/useAttendance';
-import { cn } from '../../utils/cn';
+} from "lucide-react";
+import WorkspaceLayout from "../../components/layout/WorkspaceLayout";
+import { ROUTES } from "../../config/constants";
+import { useAttendance } from "../../hooks/useAttendance";
+import { usersAPI, notificationsAPI } from "../../services";
+import { cn } from "../../utils/cn";
 
 const tabs = [
-  { key: 'employees', label: 'Employees', path: ROUTES.EMPLOYEE_DASHBOARD },
-  { key: 'attendance', label: 'Attendance', path: ROUTES.EMPLOYEE_ATTENDANCE },
-  { key: 'timeoff', label: 'Time Off', path: ROUTES.EMPLOYEE_TIME_OFF },
+  { key: "employees", label: "Employees", path: ROUTES.EMPLOYEE_DASHBOARD },
+  { key: "attendance", label: "Attendance", path: ROUTES.EMPLOYEE_ATTENDANCE },
+  { key: "timeoff", label: "Time Off", path: ROUTES.EMPLOYEE_TIME_OFF },
 ];
 
-const LABEL_TONE = 'text-xs uppercase tracking-[0.35em] text-[#b28fa1]';
-const BORDER_SOFT = 'border-[rgba(117,81,108,0.18)]';
-const CHIP_BG = 'bg-[#fef4f7]';
-const BODY_TEXT = 'text-[#2f1627]';
-const SUB_TEXT = 'text-sm text-[#7f5a6f]';
+const LABEL_TONE = "text-xs uppercase tracking-[0.35em] text-[#b28fa1]";
+const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
+const CHIP_BG = "bg-[#fef4f7]";
+const BODY_TEXT = "text-[#2f1627]";
+const SUB_TEXT = "text-sm text-[#7f5a6f]";
 
 const statusTokens = {
   present: {
-    label: 'Present',
-    accent: 'bg-emerald-500',
-    description: 'Employee is present in the office',
+    label: "Present",
+    accent: "bg-emerald-500",
+    description: "Employee is present in the office",
     icon: BadgeCheck,
     showIcon: false,
   },
   remote: {
-    label: 'Remote',
-    accent: 'bg-sky-500',
-    description: 'Working remotely',
+    label: "Remote",
+    accent: "bg-sky-500",
+    description: "Working remotely",
     icon: Wifi,
     showIcon: false,
   },
   leave: {
-    label: 'On Leave',
-    accent: 'bg-amber-400',
-    description: 'Employee is on applied/paid leave',
+    label: "On Leave",
+    accent: "bg-amber-400",
+    description: "Employee is on applied/paid leave",
     icon: Plane,
     showIcon: true,
   },
   travel: {
-    label: 'Travel',
-    accent: 'bg-blue-500',
-    description: 'Employee is traveling',
+    label: "Travel",
+    accent: "bg-blue-500",
+    description: "Employee is traveling",
     icon: Plane,
     showIcon: true,
   },
   absent: {
-    label: 'Absent',
-    accent: 'bg-yellow-400',
-    description: 'Employee is absent (has not applied time off)',
+    label: "Absent",
+    accent: "bg-yellow-400",
+    description: "Employee is absent (has not applied time off)",
     icon: CircleSlash,
     showIcon: false,
   },
 };
 
 const EmployeeDashboard = () => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const attendance = useAttendance();
+
+  // Fetch employees
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch employees with profiles
+        const employeesData = await usersAPI.getEmployees();
+
+        // Transform to match UI format
+        const transformedEmployees = employeesData.map((emp) => ({
+          id: emp.user?.id || emp.id,
+          employee_id: emp.user?.employee_id,
+          name:
+            emp.user?.full_name ||
+            `${emp.user?.first_name} ${emp.user?.last_name}`,
+          email: emp.user?.email,
+          phone: emp.phone,
+          department: emp.department || "General",
+          jobTitle: emp.job_title || "Employee",
+          status: "present", // Can be enhanced with real-time status
+          statusMessage: emp.bio || "Available",
+          avatar:
+            emp.profile_picture ||
+            `https://api.dicebear.com/7.x/thumbs/svg?seed=${emp.user?.employee_id}`,
+          location: "Office",
+          manager: "N/A",
+          dateJoined: emp.date_of_joining
+            ? new Date(emp.date_of_joining).toLocaleDateString()
+            : "N/A",
+          salaryBand: "N/A",
+          tags: [emp.department || "Employee"],
+        }));
+
+        setEmployees(transformedEmployees);
+
+        // Fetch notifications as alerts
+        const notificationsData = await notificationsAPI.getMyNotifications({
+          unread: true,
+        });
+        const transformedAlerts = notificationsData
+          .slice(0, 3)
+          .map((notif) => ({
+            id: notif.id,
+            title: notif.title,
+            body: notif.message,
+            time: notif.time_ago,
+          }));
+        setAlerts(transformedAlerts);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filteredEmployees = useMemo(() => {
     if (!query) return employees;
     return employees.filter((person) => {
-      const haystack = `${person.name} ${person.jobTitle} ${person.department}`.toLowerCase();
+      const haystack =
+        `${person.name} ${person.jobTitle} ${person.department}`.toLowerCase();
       return haystack.includes(query.toLowerCase());
     });
-  }, [query]);
+  }, [query, employees]);
 
   const sidebar = (
     <div className="space-y-6">
       <CheckInPanel {...attendance} />
-      <AlertsPanel />
+      <AlertsPanel alerts={alerts} />
     </div>
   );
+
+  if (loading) {
+    return (
+      <WorkspaceLayout
+        title="People Pulse"
+        description="Loading employee data..."
+        tabs={tabs}
+        activeTab="employees"
+        sidebar={
+          <div className="glass-panel p-6 text-center text-sm text-[#7f5a6f]">
+            Loading...
+          </div>
+        }
+      >
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="glass-panel h-48 animate-pulse p-5" />
+          ))}
+        </div>
+      </WorkspaceLayout>
+    );
+  }
 
   return (
     <>
@@ -102,12 +187,24 @@ const EmployeeDashboard = () => {
       >
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {filteredEmployees.map((employee) => (
-            <EmployeeCard key={employee.id} data={employee} onSelect={setSelectedEmployee} />
+            <EmployeeCard
+              key={employee.id}
+              data={employee}
+              onSelect={setSelectedEmployee}
+            />
           ))}
+          {filteredEmployees.length === 0 && (
+            <div className="col-span-full text-center py-12 text-[#7f5a6f]">
+              No employees found matching "{query}"
+            </div>
+          )}
         </div>
       </WorkspaceLayout>
 
-      <EmployeeDrawer employee={selectedEmployee} onClose={() => setSelectedEmployee(null)} />
+      <EmployeeDrawer
+        employee={selectedEmployee}
+        onClose={() => setSelectedEmployee(null)}
+      />
     </>
   );
 };
@@ -133,11 +230,21 @@ const EmployeeCard = ({ data, onSelect }) => {
             />
             <div className="absolute -right-1 -top-1 flex items-center justify-center">
               {token.showIcon ? (
-                <div className={cn('h-5 w-5 rounded-full border-2 border-white flex items-center justify-center', token.accent)}>
+                <div
+                  className={cn(
+                    "h-5 w-5 rounded-full border-2 border-white flex items-center justify-center",
+                    token.accent
+                  )}
+                >
                   <Icon className="h-3 w-3 text-white" />
                 </div>
               ) : (
-                <span className={cn('h-4 w-4 rounded-full border-2 border-white', token.accent)} />
+                <span
+                  className={cn(
+                    "h-4 w-4 rounded-full border-2 border-white",
+                    token.accent
+                  )}
+                />
               )}
               <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-[#2f1627] text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
                 {token.description}
@@ -146,11 +253,20 @@ const EmployeeCard = ({ data, onSelect }) => {
           </div>
           <div>
             <p className={`${LABEL_TONE}`}>{data.department}</p>
-            <h3 className="text-lg font-semibold text-[#2f1627]">{data.name}</h3>
+            <h3 className="text-lg font-semibold text-[#2f1627]">
+              {data.name}
+            </h3>
             <p className={SUB_TEXT}>{data.jobTitle}</p>
           </div>
         </div>
-        <div className={cn('flex h-9 w-9 items-center justify-center rounded-2xl border', BORDER_SOFT, CHIP_BG, 'text-[#75516c]')}>
+        <div
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-2xl border",
+            BORDER_SOFT,
+            CHIP_BG,
+            "text-[#75516c]"
+          )}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </div>
@@ -158,7 +274,7 @@ const EmployeeCard = ({ data, onSelect }) => {
       <p className={SUB_TEXT}>{data.statusMessage}</p>
 
       <div className="flex flex-wrap gap-2">
-        {(data.tags || ['Employee']).map((tag) => (
+        {(data.tags || ["Employee"]).map((tag) => (
           <span key={tag} className="pill text-[#75516c]">
             {tag}
           </span>
@@ -185,10 +301,16 @@ const EmployeeDrawer = ({ employee, onClose }) => (
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src={employee.avatar} alt={employee.name} className="h-16 w-16 rounded-2xl object-cover" />
+              <img
+                src={employee.avatar}
+                alt={employee.name}
+                className="h-16 w-16 rounded-2xl object-cover"
+              />
               <div>
                 <p className={LABEL_TONE}>{employee.department}</p>
-                <h3 className="text-xl font-semibold text-[#2f1627]">{employee.name}</h3>
+                <h3 className="text-xl font-semibold text-[#2f1627]">
+                  {employee.name}
+                </h3>
                 <p className={SUB_TEXT}>{employee.jobTitle}</p>
               </div>
             </div>
@@ -203,11 +325,23 @@ const EmployeeDrawer = ({ employee, onClose }) => (
 
           <div className="mt-6 grid gap-4 text-sm text-[#2f1627] sm:grid-cols-2">
             <InfoRow icon={Mail} label="Email" value={employee.email} />
-            <InfoRow icon={Phone} label="Phone" value={employee.phone || 'Not shared'} />
+            <InfoRow
+              icon={Phone}
+              label="Phone"
+              value={employee.phone || "Not shared"}
+            />
             <InfoRow icon={MapPin} label="Location" value={employee.location} />
-            <InfoRow icon={Building2} label="Manager" value={employee.manager} />
+            <InfoRow
+              icon={Building2}
+              label="Manager"
+              value={employee.manager}
+            />
             <InfoRow icon={Clock3} label="Joined" value={employee.dateJoined} />
-            <InfoRow icon={BadgeCheck} label="Band" value={employee.salaryBand || 'N/A'} />
+            <InfoRow
+              icon={BadgeCheck}
+              label="Band"
+              value={employee.salaryBand || "N/A"}
+            />
           </div>
 
           {employee.documents?.length ? (
@@ -217,11 +351,17 @@ const EmployeeDrawer = ({ employee, onClose }) => (
                 {employee.documents.map((doc) => (
                   <div
                     key={doc.name}
-                    className={cn('flex items-center justify-between rounded-2xl px-4 py-3 text-sm', BORDER_SOFT, CHIP_BG)}
+                    className={cn(
+                      "flex items-center justify-between rounded-2xl px-4 py-3 text-sm",
+                      BORDER_SOFT,
+                      CHIP_BG
+                    )}
                   >
                     <div>
                       <p className="font-medium text-[#2f1627]">{doc.name}</p>
-                      <p className="text-xs text-[#8d6b80]">Updated {doc.updated}</p>
+                      <p className="text-xs text-[#8d6b80]">
+                        Updated {doc.updated}
+                      </p>
                     </div>
                     <span className="text-[#75516c]">View</span>
                   </div>
@@ -236,7 +376,7 @@ const EmployeeDrawer = ({ employee, onClose }) => (
 );
 
 const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className={cn('rounded-2xl p-4', BORDER_SOFT, CHIP_BG)}>
+  <div className={cn("rounded-2xl p-4", BORDER_SOFT, CHIP_BG)}>
     <div className={`flex items-center gap-2 ${LABEL_TONE}`}>
       <Icon className="h-3.5 w-3.5" /> {label}
     </div>
@@ -244,21 +384,56 @@ const InfoRow = ({ icon: Icon, label, value }) => (
   </div>
 );
 
-const CheckInPanel = ({ status, checkIn, checkOut, loading, history, lastCheckIn, lastCheckOut }) => {
-  const isIn = status === 'checked_in';
+const CheckInPanel = ({
+  status,
+  checkIn,
+  checkOut,
+  loading,
+  history,
+  lastCheckIn,
+  lastCheckOut,
+}) => {
+  const isIn = status === "checked_in";
   return (
     <div className="glass-panel space-y-4 p-6">
       <div className="flex items-center justify-between">
         <div>
           <p className={LABEL_TONE}>Attendance Tray</p>
-          <h4 className="text-xl font-semibold text-[#2f1627]">{isIn ? 'You are checked in' : 'You are away'}</h4>
+          <h4 className="text-xl font-semibold text-[#2f1627]">
+            {isIn ? "You are checked in" : "You are away"}
+          </h4>
         </div>
-        <span className={cn('status-dot', isIn ? 'bg-emerald-400' : 'bg-rose-500')} />
+        <span
+          className={cn("status-dot", isIn ? "bg-emerald-400" : "bg-rose-500")}
+        />
       </div>
 
-      <div className={cn('rounded-2xl p-4 text-sm', BORDER_SOFT, CHIP_BG, 'text-[#553347]')}>
-        <p>Last check-in: {lastCheckIn ? new Date(lastCheckIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</p>
-        <p>Last check-out: {lastCheckOut ? new Date(lastCheckOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+      <div
+        className={cn(
+          "rounded-2xl p-4 text-sm",
+          BORDER_SOFT,
+          CHIP_BG,
+          "text-[#553347]"
+        )}
+      >
+        <p>
+          Last check-in:{" "}
+          {lastCheckIn
+            ? new Date(lastCheckIn).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "—"}
+        </p>
+        <p>
+          Last check-out:{" "}
+          {lastCheckOut
+            ? new Date(lastCheckOut).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "—"}
+        </p>
       </div>
 
       <div className="flex gap-3">
@@ -267,8 +442,10 @@ const CheckInPanel = ({ status, checkIn, checkOut, loading, history, lastCheckIn
           onClick={checkIn}
           disabled={loading || isIn}
           className={cn(
-            'flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition',
-            isIn ? 'bg-[#fef4f7] text-[#c2a4b4]' : 'bg-[#2f9c74] text-white hover:bg-[#278363]'
+            "flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition",
+            isIn
+              ? "bg-[#fef4f7] text-[#c2a4b4]"
+              : "bg-[#2f9c74] text-white hover:bg-[#278363]"
           )}
         >
           Check In
@@ -278,8 +455,10 @@ const CheckInPanel = ({ status, checkIn, checkOut, loading, history, lastCheckIn
           onClick={checkOut}
           disabled={loading || !isIn}
           className={cn(
-            'flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition',
-            !isIn ? 'bg-[#fef4f7] text-[#c2a4b4]' : 'bg-[#d9546d] text-white hover:bg-[#c34b60]'
+            "flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition",
+            !isIn
+              ? "bg-[#fef4f7] text-[#c2a4b4]"
+              : "bg-[#d9546d] text-white hover:bg-[#c34b60]"
           )}
         >
           Check Out
@@ -291,9 +470,22 @@ const CheckInPanel = ({ status, checkIn, checkOut, loading, history, lastCheckIn
         <ul className="mt-3 space-y-2 text-sm text-[#6e4c61]">
           {history?.length ? (
             history.map((item) => (
-              <li key={item.timestamp} className={cn('flex items-center justify-between rounded-2xl px-3 py-2', BORDER_SOFT)}>
-                <span className="capitalize">{item.type.replace('_', ' ')}</span>
-                <span>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <li
+                key={item.timestamp}
+                className={cn(
+                  "flex items-center justify-between rounded-2xl px-3 py-2",
+                  BORDER_SOFT
+                )}
+              >
+                <span className="capitalize">
+                  {item.type.replace("_", " ")}
+                </span>
+                <span>
+                  {new Date(item.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
               </li>
             ))
           ) : (
@@ -307,19 +499,28 @@ const CheckInPanel = ({ status, checkIn, checkOut, loading, history, lastCheckIn
   );
 };
 
-const AlertsPanel = () => (
+const AlertsPanel = ({ alerts = [] }) => (
   <div className="glass-panel p-6">
     <p className={LABEL_TONE}>Alerts</p>
     <div className="mt-4 space-y-4">
-      {alerts.map((alert) => (
-        <div key={alert.id} className={cn('rounded-2xl p-4', BORDER_SOFT, CHIP_BG)}>
-          <div className="flex items-center justify-between text-sm">
-            <p className="font-semibold text-[#2f1627]">{alert.title}</p>
-            <span className="text-xs text-[#a17b8f]">{alert.time}</span>
+      {alerts.length > 0 ? (
+        alerts.map((alert) => (
+          <div
+            key={alert.id}
+            className={cn("rounded-2xl p-4", BORDER_SOFT, CHIP_BG)}
+          >
+            <div className="flex items-center justify-between text-sm">
+              <p className="font-semibold text-[#2f1627]">{alert.title}</p>
+              <span className="text-xs text-[#a17b8f]">{alert.time}</span>
+            </div>
+            <p className="mt-1 text-sm text-[#7f5a6f]">{alert.body}</p>
           </div>
-          <p className="mt-1 text-sm text-[#7f5a6f]">{alert.body}</p>
+        ))
+      ) : (
+        <div className="rounded-2xl border border-dashed border-[rgba(117,81,108,0.3)] p-4 text-center text-sm text-[#b28fa1]">
+          No new alerts
         </div>
-      ))}
+      )}
     </div>
   </div>
 );
