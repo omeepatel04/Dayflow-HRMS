@@ -70,3 +70,10 @@ Desktop.ini
 *.njsproj
 *.sln
 *.sw?
+# Vite logs files
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Temporary folders
+tmp/
+.lh
