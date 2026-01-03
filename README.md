@@ -97,8 +97,3 @@ Frontend:
 
 - Backend: `cd backend && python Dayflow/manage.py test`
 - Frontend: `cd client && npm test`
-
-## Notes
-
-- Leave types now include CASUAL; ensure clients send one of PAID, SICK, UNPAID, CASUAL.
-- The frontend expects `VITE_API_BASE_URL`; align your environment (or update `docker-compose.yml`) before deploying.
