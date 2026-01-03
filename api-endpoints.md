@@ -170,6 +170,26 @@
 
 - **DELETE** `/attendance/<id>/`
 
+### Attendance Regularization
+
+- **POST** `/attendance/regularization/request/`
+
+  - Body:
+
+  ```json
+  {
+    "date": "YYYY-MM-DD",
+    "requested_check_in": "HH:MM:SS",
+    "requested_check_out": "HH:MM:SS",
+    "reason": "string"
+  }
+  ```
+
+- **GET** `/attendance/regularization/my-requests/` — current user's requests
+- **GET** `/attendance/regularization/all/` — Admin/HR (optional `status`, `employee_id`)
+- **POST** `/attendance/regularization/<id>/approve/`
+  - Body: `{ "action": "approve" | "reject" }`
+
 ---
 
 ## 3. Leaves Module (`/leaves/`)
@@ -183,7 +203,7 @@
 
 ```json
 {
-  "leave_type": "PAID|SICK|UNPAID",
+  "leave_type": "PAID|SICK|UNPAID|CASUAL",
   "start_date": "YYYY-MM-DD",
   "end_date": "YYYY-MM-DD",
   "reason": "string"
@@ -288,6 +308,32 @@
 
 - **DELETE** `/payroll/<id>/`
 
+#### Payroll Components (Admin/HR)
+
+- **GET** `/payroll/components/` (optional `type=ALLOWANCE|DEDUCTION`)
+- **POST** `/payroll/components/`
+  - Body: `{ "name": "string", "component_type": "ALLOWANCE|DEDUCTION", "description": "string" }
+
+#### Salary Structure
+
+- **GET** `/payroll/salary-structure/` — current user; HR/Admin can pass `employee_id`
+- **POST** `/payroll/salary-structure/` (HR/Admin)
+  - Body includes salary components (basic_salary, hra, transport_allowance, medical_allowance, special_allowance, provident_fund, professional_tax, income_tax, effective_from, employee)
+
+#### Generate Payroll (Admin/HR)
+
+- **POST** `/payroll/generate/`
+  - Body: `{ "employee_id": 1, "month": "YYYY-MM-01" }`
+
+#### Update Payroll Status (Admin/HR)
+
+- **PATCH** `/payroll/<id>/status/`
+  - Body: `{ "status": "DRAFT|PROCESSED|PAID" }`
+
+#### Payroll Summary (Admin/HR)
+
+- **GET** `/payroll/summary/` (query: `year`, optional `month`)
+
 ---
 
 ## Response Format
@@ -332,15 +378,12 @@
 2. **Date Format**: Use `YYYY-MM-DD` for dates
 3. **Time Format**: Use `HH:MM:SS` for time fields
 4. **Filtering**: Use query parameters for filtering list endpoints
-5. **Permissions**: Some endpoints are restricted to Admin/HR roles (will be implemented in middleware)
+5. **Permissions**: Admin/HR restrictions apply to management endpoints (users, all attendance/leaves, payroll creation/approval, notifications broadcast)
+6. **Headers**: Include `Authorization: Bearer <access_token>` on protected endpoints; CORS is enabled for localhost dev.
 
 ---
 
-## Next Steps
+## Additional Modules
 
-1. Implement JWT authentication middleware
-2. Add role-based permission decorators
-3. Add pagination for list endpoints
-4. Implement dashboard and analytics endpoints
-5. Add notification system
-6. Add report generation endpoints
+- **Notifications** (`/notifications/`): my notifications, detail, mark-all-read, create, broadcast, preferences, stats.
+- **Dashboards** (`/dashboard/`): employee and HR snapshots.

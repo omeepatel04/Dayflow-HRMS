@@ -1,5 +1,12 @@
 # Dayflow HRMS - Client
 
+![Dayflow Client Logo](https://placehold.co/960x160/0f172a/ffffff?text=Dayflow+HRMS+Frontend)
+
+[![React](https://img.shields.io/badge/React-19-0ea5e9?logo=react&logoColor=fff)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-7.2-8b5cf6?logo=vite&logoColor=fff)](https://vitejs.dev/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4-38bdf8?logo=tailwind-css&logoColor=fff)](https://tailwindcss.com/)
+[![Router](https://img.shields.io/badge/React_Router-7.11-ef4444?logo=react-router&logoColor=fff)](https://reactrouter.com/)
+
 React frontend application for the Dayflow Human Resource Management System.
 
 ## 🚀 Tech Stack
@@ -36,17 +43,21 @@ client/
 ## 🛠️ Setup & Installation
 
 1. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 2. **Configure environment**
+
    ```bash
    cp .env.example .env.local
    ```
-   Update the `.env.local` file with your backend API URL.
+
+   Update the `.env.local` file with your backend API URL (e.g., `VITE_API_BASE_URL=http://localhost:8000` when using Docker Compose).
 
 3. **Start development server**
+
    ```bash
    npm run dev
    ```
@@ -67,7 +78,7 @@ client/
 
 See `.env.example` for required environment variables.
 
-- `VITE_API_BASE_URL` - Backend API base URL
+- `VITE_API_BASE_URL` - Backend API base URL (must be set; defaults to http://localhost:8000 if not provided)
 
 ## 👥 Team Roles
 
