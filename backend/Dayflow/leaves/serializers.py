@@ -14,6 +14,15 @@ class LeaveSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'employee', 'status', 'admin_comment', 'applied_on', 'updated_on']
     
     def validate(self, attrs):
+        # Normalize type to uppercase to accept case-insensitive inputs
+        leave_type = attrs.get('leave_type')
+        if leave_type:
+            attrs['leave_type'] = leave_type.upper()
+            valid_types = {choice[0] for choice in Leave.LEAVE_TYPE_CHOICES}
+            if attrs['leave_type'] not in valid_types:
+                raise serializers.ValidationError({
+                    'leave_type': [f"Invalid leave_type. Must be one of {sorted(valid_types)}."]
+                })
         start_date = attrs.get('start_date')
         end_date = attrs.get('end_date')
         

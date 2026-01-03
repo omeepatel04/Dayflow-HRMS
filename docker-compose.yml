@@ -31,10 +31,7 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
     ports:
-      - "5173:5173"
-    volumes:
-      - ./client:/app/client
-      - /app/client/node_modules
+      - "3000:3000"
     depends_on:
       - backend
     networks:

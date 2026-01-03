@@ -13,8 +13,11 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
-# Expose the Vite development server port
-EXPOSE 5173
+# Expose the server port
+EXPOSE 3000
 
-# Start the development server
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Build the application
+RUN npm run build
+
+# Start the static server on all interfaces for container use
+CMD ["npx", "serve", "-s", "dist", "-l", "3000", "-n"]
