@@ -1,2 +1,2 @@
 # Import test modules
-from .test_file_upload import *
+from .test_password_reset import *

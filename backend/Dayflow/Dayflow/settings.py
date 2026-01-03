@@ -142,6 +142,18 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = ''  # Set in production
+EMAIL_HOST_PASSWORD = ''  # Set in production
+DEFAULT_FROM_EMAIL = 'noreply@dayflow.com'
+
+# Password Reset Token Expiry (in seconds)
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
