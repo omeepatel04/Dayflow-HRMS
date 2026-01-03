@@ -1,5 +1,5 @@
-import { API_ENDPOINTS } from '../config/api';
-import { STORAGE_KEYS } from '../config/constants';
+import API_BASE_URL, { API_ENDPOINTS } from "../config/api";
+import { STORAGE_KEYS } from "../config/constants";
 
 /**
  * Base API Service
@@ -8,54 +8,56 @@ import { STORAGE_KEYS } from '../config/constants';
 class ApiService {
   async request(url, options = {}) {
     const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    
+
     const headers = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     };
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     try {
-      const response = await fetch(url, {
+      const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+
+      const response = await fetch(fullUrl, {
         ...options,
         headers,
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Request failed');
+        throw new Error(error.message || "Request failed");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('API Error:', error);
+      console.error("API Error:", error);
       throw error;
     }
   }
 
   get(url) {
-    return this.request(url, { method: 'GET' });
+    return this.request(url, { method: "GET" });
   }
 
   post(url, data) {
     return this.request(url, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   put(url, data) {
     return this.request(url, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   }
 
   delete(url) {
-    return this.request(url, { method: 'DELETE' });
+    return this.request(url, { method: "DELETE" });
   }
 }
 

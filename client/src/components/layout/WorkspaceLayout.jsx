@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Circle,
   Search,
@@ -12,6 +12,7 @@ import {
 import { cn } from "../../utils/cn";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES } from "../../config/constants";
+import { getNavigationForRoute } from "../../config/navigation";
 import NotificationBell from "../NotificationBell";
 
 const statusAccent = {
@@ -46,20 +47,45 @@ const WorkspaceLayout = ({
   toolbar,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const displayName =
+    user?.full_name ||
+    user?.name ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ");
+
+  const homePath = useMemo(() => {
+    if (user?.role === "ADMIN" || user?.role === "HR") {
+      return ROUTES.ADMIN_DASHBOARD;
+    }
+    return ROUTES.EMPLOYEE_DASHBOARD;
+  }, [user?.role]);
 
   const indicator = statusAccent[statusIndicator] || statusAccent.default;
   const indicatorText = indicatorLabel[statusIndicator] || "Offline";
 
+  const navConfig = useMemo(() => {
+    if (tabs?.length || activeTab) {
+      return {
+        tabs,
+        activeTab,
+      };
+    }
+    return getNavigationForRoute(user?.role, location.pathname);
+  }, [tabs, activeTab, user?.role, location.pathname]);
+
   const profileInitials = useMemo(() => {
-    if (!user?.name) return "DF";
-    return user.name
+    const baseName = displayName?.trim();
+    if (!baseName) return "DF";
+    return baseName
       .split(" ")
+      .filter(Boolean)
       .map((token) => token[0])
       .slice(0, 2)
       .join("");
-  }, [user?.name]);
+  }, [displayName]);
 
   const handleTab = (path) => {
     if (path) navigate(path);
@@ -86,6 +112,7 @@ const WorkspaceLayout = ({
               <div className="flex flex-1 items-center gap-3">
                 <button
                   type="button"
+                  onClick={() => handleTab(homePath)}
                   className="flex items-center gap-3 rounded-2xl border border-[rgba(117,81,108,0.2)] bg-white/80 px-3 py-2 text-left transition hover:border-[rgba(117,81,108,0.35)]"
                   aria-label="Go to dashboard home"
                 >
@@ -101,16 +128,16 @@ const WorkspaceLayout = ({
                     </p>
                   </div>
                 </button>
-                {tabs?.length ? (
+                {navConfig.tabs?.length ? (
                   <nav className="hidden flex-1 items-center rounded-[999px] border border-[rgba(117,81,108,0.2)] bg-white/70 p-1 sm:flex">
-                    {tabs.map((tab) => (
+                    {navConfig.tabs.map((tab) => (
                       <button
                         key={tab.key}
                         type="button"
                         onClick={() => handleTab(tab.path)}
                         className={cn(
                           "flex-1 rounded-full px-4 py-2 text-sm font-medium transition",
-                          activeTab === tab.key
+                          navConfig.activeTab === tab.key
                             ? "bg-[#75516c] text-white shadow-[0_12px_20px_rgba(117,81,108,0.25)]"
                             : "text-[#75516c]/70 hover:text-[#75516c]"
                         )}
@@ -130,7 +157,7 @@ const WorkspaceLayout = ({
                 <div className="hidden items-center rounded-2xl border border-[rgba(117,81,108,0.18)] bg-[#fff8fb] px-3 py-2 sm:flex">
                   <Search className="mr-2 h-4 w-4 text-[#b28fa1]" />
                   <input
-                    value={searchValue}
+                    value={searchValue || ""}
                     onChange={(event) => onSearch?.(event.target.value)}
                     placeholder={searchPlaceholder}
                     className="w-48 bg-transparent text-sm text-[#3b1f2f] placeholder:text-[#b28fa1] focus:outline-none"
@@ -153,7 +180,7 @@ const WorkspaceLayout = ({
                     {user?.avatar ? (
                       <img
                         src={user.avatar}
-                        alt={user.name}
+                        alt={displayName || "User"}
                         className="h-9 w-9 rounded-2xl object-cover"
                       />
                     ) : (
@@ -166,7 +193,7 @@ const WorkspaceLayout = ({
                         Now logged in
                       </p>
                       <p className="text-sm font-semibold text-[#3b1f2f]">
-                        {user?.name || "Guest"}
+                        {displayName || "Guest"}
                       </p>
                     </div>
                     <ChevronDown className="h-4 w-4 text-[#b28fa1]" />
@@ -193,16 +220,16 @@ const WorkspaceLayout = ({
                 </div>
               </div>
             </div>
-            {tabs?.length ? (
+            {navConfig.tabs?.length ? (
               <div className="mt-4 flex gap-2 overflow-x-auto sm:hidden">
-                {tabs.map((tab) => (
+                {navConfig.tabs.map((tab) => (
                   <button
                     key={tab.key}
                     type="button"
                     onClick={() => handleTab(tab.path)}
                     className={cn(
                       "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#75516c]/80",
-                      activeTab === tab.key
+                      navConfig.activeTab === tab.key
                         ? "border-[#75516c] text-[#75516c]"
                         : "border-[rgba(117,81,108,0.2)]"
                     )}
@@ -218,7 +245,7 @@ const WorkspaceLayout = ({
                 <div className="flex items-center rounded-2xl border border-[rgba(117,81,108,0.18)] bg-[#fff8fb] px-3 py-2">
                   <Search className="mr-2 h-4 w-4 text-[#b28fa1]" />
                   <input
-                    value={searchValue}
+                    value={searchValue || ""}
                     onChange={(event) => onSearch?.(event.target.value)}
                     placeholder={searchPlaceholder}
                     className="w-full bg-transparent text-sm text-[#3b1f2f] placeholder:text-[#b28fa1] focus:outline-none"

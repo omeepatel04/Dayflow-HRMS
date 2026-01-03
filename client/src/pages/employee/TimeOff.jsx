@@ -1,16 +1,11 @@
 import { useMemo, useState, useEffect } from "react";
 import { CalendarDays, Plus, MessageCircle } from "lucide-react";
 import WorkspaceLayout from "../../components/layout/WorkspaceLayout";
-import { ROUTES } from "../../config/constants";
+import { EMPLOYEE_TABS } from "../../config/navigation";
 import { useAttendance } from "../../hooks/useAttendance";
 import { leavesAPI } from "../../services";
 import { cn } from "../../utils/cn";
-
-const tabs = [
-  { key: "employees", label: "Employees", path: ROUTES.EMPLOYEE_DASHBOARD },
-  { key: "attendance", label: "Attendance", path: ROUTES.EMPLOYEE_ATTENDANCE },
-  { key: "timeoff", label: "Time Off", path: ROUTES.EMPLOYEE_TIME_OFF },
-];
+import { useToast } from "../../components/Toast";
 
 const LABEL_TONE = "text-xs uppercase tracking-[0.35em] text-[#b28fa1]";
 const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
@@ -22,8 +17,8 @@ const TimeOffPage = () => {
   const attendance = useAttendance();
   const [requests, setRequests] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState({
-    casual: 12,
-    sick: 7,
+    casual: 0,
+    sick: 0,
     unpaid: 0,
   });
   const [form, setForm] = useState({
@@ -35,6 +30,7 @@ const TimeOffPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { pushToast } = useToast();
 
   const computedDays = useMemo(() => {
     if (!form.startDate || !form.endDate) return 0;
@@ -48,21 +44,43 @@ const TimeOffPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const leavesData = await leavesAPI.getMyLeaves();
+        const leavesResponse = await leavesAPI.getMyLeaves();
+        // Backend returns { count, leaves }, extract leaves array
+        const leavesData = leavesResponse?.leaves || leavesResponse || [];
 
-        setRequests(
-          leavesData.map((leave) => ({
-            id: leave.id,
-            type: leave.leave_type,
-            startDate: leave.start_date,
-            endDate: leave.end_date,
-            days: leave.days_requested,
-            status: leave.status.toLowerCase(),
-            remarks: leave.reason,
-          }))
+        const normalized = leavesData.map((leave) => ({
+          id: leave.id,
+          type: leave.leave_type,
+          startDate: leave.start_date,
+          endDate: leave.end_date,
+          days: leave.days_requested,
+          status: leave.status?.toLowerCase(),
+          remarks: leave.reason,
+        }));
+
+        setRequests(normalized);
+
+        const balance = normalized.reduce(
+          (acc, leave) => {
+            if (leave.status !== "approved") return acc;
+            const key = leave.type?.toLowerCase();
+            if (key && acc[key] !== undefined) {
+              acc[key] += leave.days || 0;
+            }
+            return acc;
+          },
+          { casual: 0, sick: 0, unpaid: 0 }
         );
+
+        setLeaveBalance(balance);
       } catch (err) {
         console.error("Failed to fetch leaves:", err);
+        setError("Unable to load leave data.");
+        pushToast({
+          title: "Leave data unavailable",
+          description: "We could not refresh your leave history.",
+          variant: "error",
+        });
       } finally {
         setLoading(false);
       }
@@ -128,8 +146,18 @@ const TimeOffPage = () => {
       ]);
 
       setForm({ type: "CASUAL", startDate: "", endDate: "", reason: "" });
+      pushToast({
+        title: "Leave request submitted",
+        description: "We sent this to your manager.",
+        variant: "success",
+      });
     } catch (err) {
       setError(err.response?.data?.message || "Failed to submit leave request");
+      pushToast({
+        title: "Leave request failed",
+        description: err.response?.data?.message || "Please try again.",
+        variant: "error",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -146,7 +174,7 @@ const TimeOffPage = () => {
     <WorkspaceLayout
       title="Leave & Time-off"
       description="Stay on top of balances, plan your breaks, and keep managers in the loop with context-rich requests."
-      tabs={tabs}
+      tabs={EMPLOYEE_TABS}
       activeTab="timeoff"
       sidebar={sidebar}
       statusIndicator={attendance.status}
@@ -165,6 +193,12 @@ const TimeOffPage = () => {
             <BalanceCard key={item.key} data={item} />
           ))}
         </div>
+
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="glass-panel space-y-4 p-6">
           <div className="flex items-center gap-3">
@@ -285,7 +319,10 @@ const TimeOffPage = () => {
             ) : requests.length > 0 ? (
               requests.map((request) => (
                 <div
-                  key={request.id}
+                  key={
+                    request.id ||
+                    `${request.startDate}-${request.endDate}-${request.type}`
+                  }
                   className={cn(
                     "flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm",
                     BORDER_SOFT,
@@ -374,7 +411,7 @@ const PendingCard = ({ items }) => (
       <div className="space-y-3 text-sm text-[#7f5a6f]">
         {items.map((req) => (
           <div
-            key={req.id}
+            key={req.id || `${req.startDate}-${req.endDate}-${req.type}`}
             className={cn("rounded-2xl px-4 py-3", BORDER_SOFT, CHIP_BG)}
           >
             <p className="font-semibold text-[#2f1627]">{req.type}</p>

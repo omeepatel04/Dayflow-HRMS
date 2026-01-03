@@ -12,16 +12,10 @@ import {
   Clock3,
 } from "lucide-react";
 import WorkspaceLayout from "../../components/layout/WorkspaceLayout";
-import { ROUTES } from "../../config/constants";
+import { EMPLOYEE_TABS } from "../../config/navigation";
 import { useAttendance } from "../../hooks/useAttendance";
 import { usersAPI, notificationsAPI } from "../../services";
 import { cn } from "../../utils/cn";
-
-const tabs = [
-  { key: "employees", label: "Employees", path: ROUTES.EMPLOYEE_DASHBOARD },
-  { key: "attendance", label: "Attendance", path: ROUTES.EMPLOYEE_ATTENDANCE },
-  { key: "timeoff", label: "Time Off", path: ROUTES.EMPLOYEE_TIME_OFF },
-];
 
 const LABEL_TONE = "text-xs uppercase tracking-[0.35em] text-[#b28fa1]";
 const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
@@ -82,7 +76,9 @@ const EmployeeDashboard = () => {
         setLoading(true);
 
         // Fetch employees with profiles
-        const employeesData = await usersAPI.getEmployees();
+        const employeesResponse = await usersAPI.getEmployees();
+        const employeesData =
+          employeesResponse.employees || employeesResponse || [];
 
         // Transform to match UI format
         const transformedEmployees = employeesData.map((emp) => ({
@@ -112,9 +108,14 @@ const EmployeeDashboard = () => {
         setEmployees(transformedEmployees);
 
         // Fetch notifications as alerts
-        const notificationsData = await notificationsAPI.getMyNotifications({
-          unread: true,
-        });
+        const notificationsResponse = await notificationsAPI.getMyNotifications(
+          {
+            unread_only: true,
+          }
+        );
+        // Backend returns { count, unread_count, notifications }, extract notifications array
+        const notificationsData =
+          notificationsResponse?.notifications || notificationsResponse || [];
         const transformedAlerts = notificationsData
           .slice(0, 3)
           .map((notif) => ({
@@ -155,7 +156,7 @@ const EmployeeDashboard = () => {
       <WorkspaceLayout
         title="People Pulse"
         description="Loading employee data..."
-        tabs={tabs}
+        tabs={EMPLOYEE_TABS}
         activeTab="employees"
         sidebar={
           <div className="glass-panel p-6 text-center text-sm text-[#7f5a6f]">
@@ -177,7 +178,7 @@ const EmployeeDashboard = () => {
       <WorkspaceLayout
         title="People Pulse"
         description="Live view of who is in, on leave, or travelling across pods. Tap any card to review profile context."
-        tabs={tabs}
+        tabs={EMPLOYEE_TABS}
         activeTab="employees"
         searchValue={query}
         onSearch={setQuery}
@@ -392,6 +393,7 @@ const CheckInPanel = ({
   history,
   lastCheckIn,
   lastCheckOut,
+  error,
 }) => {
   const isIn = status === "checked_in";
   return (
@@ -448,7 +450,7 @@ const CheckInPanel = ({
               : "bg-[#2f9c74] text-white hover:bg-[#278363]"
           )}
         >
-          Check In
+          {isIn ? "Checked In" : "Check In"}
         </button>
         <button
           type="button"
@@ -464,6 +466,18 @@ const CheckInPanel = ({
           Check Out
         </button>
       </div>
+
+      {isIn ? (
+        <p className="text-xs text-[#7f5a6f]">
+          You are already checked in for today. Use Check Out when you leave.
+        </p>
+      ) : null}
+
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div>
         <p className={LABEL_TONE}>Recent activity</p>

@@ -2,73 +2,18 @@ import { useState, useEffect } from "react";
 import { leavesAPI } from "../../services";
 import { CheckCircle, XCircle, Calendar, User } from "lucide-react";
 import WorkspaceLayout from "../../components/layout/WorkspaceLayout";
-import { ROUTES } from "../../config/constants";
 import { cn } from "../../utils/cn";
-
-const tabs = [
-  { key: "dashboard", label: "Dashboard", path: ROUTES.ADMIN_DASHBOARD },
-  { key: "employees", label: "Employees", path: ROUTES.ADMIN_EMPLOYEES },
-  { key: "attendance", label: "Attendance", path: ROUTES.ADMIN_ATTENDANCE },
-  { key: "leaves", label: "Leave Requests", path: ROUTES.ADMIN_TIME_OFF },
-];
 
 const LABEL_TONE = "text-xs uppercase tracking-[0.35em] text-[#b28fa1]";
 const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
 const CHIP_BG = "bg-[#fef4f7]";
 
-// Dummy data for demonstration
-const DUMMY_LEAVES = [
-  {
-    id: 1,
-    employee: { first_name: "John", last_name: "Doe" },
-    leave_type: "Casual Leave",
-    start_date: "2026-01-10",
-    end_date: "2026-01-12",
-    reason: "Personal work",
-    status: "pending",
-  },
-  {
-    id: 2,
-    employee: { first_name: "Sarah", last_name: "Johnson" },
-    leave_type: "Sick Leave",
-    start_date: "2026-01-08",
-    end_date: "2026-01-08",
-    reason: "Medical appointment",
-    status: "pending",
-  },
-  {
-    id: 3,
-    employee: { first_name: "Michael", last_name: "Chen" },
-    leave_type: "Vacation",
-    start_date: "2025-12-20",
-    end_date: "2025-12-27",
-    reason: "Planned vacation",
-    status: "approved",
-  },
-  {
-    id: 4,
-    employee: { first_name: "Emily", last_name: "Williams" },
-    leave_type: "Casual Leave",
-    start_date: "2025-12-15",
-    end_date: "2025-12-16",
-    reason: "Family event",
-    status: "rejected",
-  },
-  {
-    id: 5,
-    employee: { first_name: "David", last_name: "Martinez" },
-    leave_type: "Maternity Leave",
-    start_date: "2026-02-01",
-    end_date: "2026-05-01",
-    reason: "Maternity",
-    status: "pending",
-  },
-];
-
 const LeaveManagement = () => {
-  const [leaves, setLeaves] = useState(DUMMY_LEAVES);
+  const [leaves, setLeaves] = useState([]);
   const [filter, setFilter] = useState("pending");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedLeave, setSelectedLeave] = useState(null);
 
   useEffect(() => {
     fetchLeaves();
@@ -78,26 +23,15 @@ const LeaveManagement = () => {
     try {
       setLoading(true);
       const params = filter === "all" ? {} : { status: filter };
-      const data = await leavesAPI.getAllLeaves(params);
-      // Use API data if available, otherwise use filtered dummy data
-      if (data && data.length > 0) {
-        setLeaves(data);
-      } else {
-        // Filter dummy data
-        const filtered =
-          filter === "all"
-            ? DUMMY_LEAVES
-            : DUMMY_LEAVES.filter((leave) => leave.status === filter);
-        setLeaves(filtered);
-      }
+      const response = await leavesAPI.getAllLeaves(params);
+      // Backend returns { count, leaves }, extract leaves array
+      const leavesData = response?.leaves || response || [];
+      setLeaves(leavesData);
+      setError("");
     } catch (err) {
-      console.error("Failed to fetch leaves, using dummy data:", err);
-      // Use filtered dummy data on error
-      const filtered =
-        filter === "all"
-          ? DUMMY_LEAVES
-          : DUMMY_LEAVES.filter((leave) => leave.status === filter);
-      setLeaves(filtered);
+      console.error("Failed to fetch leaves:", err);
+      setLeaves([]);
+      setError("Failed to load leave requests. Please refresh.");
     } finally {
       setLoading(false);
     }
@@ -105,16 +39,18 @@ const LeaveManagement = () => {
 
   const handleLeaveAction = async (id, isApproved) => {
     try {
-      // Try to update via API
-      try {
-        await leavesAPI.approveLeave(id, { is_approved: isApproved });
-      } catch (apiErr) {
-        console.warn("API update failed, updating locally:", apiErr);
-      }
-      // Update local state regardless
-      setLeaves((prev) => prev.filter((leave) => leave.id !== id));
+      setLoading(true);
+      await leavesAPI.approveLeave(id, {
+        status: isApproved ? "APPROVED" : "REJECTED",
+        admin_comment: isApproved ? "Approved" : "Rejected",
+      });
+      // Refetch data to get updated list
+      await fetchLeaves();
     } catch (err) {
       console.error("Failed to update leave:", err);
+      alert("Failed to update leave request. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -133,10 +69,14 @@ const LeaveManagement = () => {
     <WorkspaceLayout
       title="Leave Management"
       description="Review and approve leave requests from your team."
-      tabs={tabs}
-      activeTab="leaves"
     >
       <div className="space-y-6">
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         <div className="flex gap-2">
           {["pending", "approved", "rejected", "all"].map((status) => (
             <button
@@ -170,6 +110,15 @@ const LeaveManagement = () => {
                 <div
                   key={leave.id}
                   className={cn("rounded-2xl p-4", BORDER_SOFT, CHIP_BG)}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedLeave(leave)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelectedLeave(leave);
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -229,14 +178,16 @@ const LeaveManagement = () => {
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleLeaveAction(leave.id, true)}
-                          className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
+                          disabled={loading}
+                          className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
                           <CheckCircle className="inline h-4 w-4 mr-1" />
                           Approve
                         </button>
                         <button
                           onClick={() => handleLeaveAction(leave.id, false)}
-                          className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+                          disabled={loading}
+                          className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
                           <XCircle className="inline h-4 w-4 mr-1" />
                           Reject
@@ -253,6 +204,64 @@ const LeaveManagement = () => {
             )}
           </div>
         </div>
+
+        {selectedLeave ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+            <div className="w-full max-w-xl rounded-2xl border border-[rgba(117,81,108,0.2)] bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-[rgba(117,81,108,0.2)] px-6 py-4">
+                <div>
+                  <p className={LABEL_TONE}>Leave request</p>
+                  <h3 className="text-lg font-semibold text-[#2f1627]">
+                    {selectedLeave.employee_name || "Employee"}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLeave(null)}
+                  className="text-sm text-[#75516c] hover:text-[#4a2a39]"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="space-y-3 px-6 py-4 text-sm text-[#2f1627]">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-[#b28fa1]" />
+                  <span>{selectedLeave.employee_id || "N/A"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-[#b28fa1]" />
+                  <span>
+                    {selectedLeave.start_date} to {selectedLeave.end_date} •{" "}
+                    {selectedLeave.days_requested} days
+                  </span>
+                </div>
+                <div>
+                  <p className={LABEL_TONE}>Type</p>
+                  <p className="font-semibold capitalize text-[#2f1627]">
+                    {selectedLeave.leave_type?.replace("_", " ")}
+                  </p>
+                </div>
+                <div>
+                  <p className={LABEL_TONE}>Reason</p>
+                  <p className="text-[#7f5a6f]">
+                    {selectedLeave.reason || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className={LABEL_TONE}>Status</p>
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize",
+                      getStatusColor(selectedLeave.status)
+                    )}
+                  >
+                    {selectedLeave.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </WorkspaceLayout>
   );

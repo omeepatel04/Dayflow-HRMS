@@ -1,17 +1,10 @@
 import { useState, useEffect } from "react";
 import { DollarSign, Download, FileText, TrendingUp } from "lucide-react";
 import WorkspaceLayout from "../../components/layout/WorkspaceLayout";
-import { ROUTES } from "../../config/constants";
+import { EMPLOYEE_TABS } from "../../config/navigation";
 import { useAttendance } from "../../hooks/useAttendance";
 import { payrollAPI } from "../../services";
 import { cn } from "../../utils/cn";
-
-const tabs = [
-  { key: "employees", label: "Employees", path: ROUTES.EMPLOYEE_DASHBOARD },
-  { key: "attendance", label: "Attendance", path: ROUTES.EMPLOYEE_ATTENDANCE },
-  { key: "timeoff", label: "Time Off", path: ROUTES.EMPLOYEE_TIME_OFF },
-  { key: "payroll", label: "Payroll", path: "/employee/payroll" },
-];
 
 const LABEL_TONE = "text-xs uppercase tracking-[0.35em] text-[#b28fa1]";
 const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
@@ -27,8 +20,10 @@ const PayrollPage = () => {
   useEffect(() => {
     const fetchPayroll = async () => {
       try {
-        const data = await payrollAPI.getMyPayroll();
-        setPayrollRecords(data);
+        const response = await payrollAPI.getMyPayroll();
+        // Backend returns { count, payroll }, extract payroll array
+        const payrollData = response?.payroll || response || [];
+        setPayrollRecords(payrollData);
       } catch (err) {
         console.error("Failed to fetch payroll:", err);
       } finally {
@@ -44,7 +39,7 @@ const PayrollPage = () => {
     <WorkspaceLayout
       title="Payroll & Compensation"
       description="View your salary details, download payslips, and track compensation history."
-      tabs={tabs}
+      tabs={EMPLOYEE_TABS}
       activeTab="payroll"
       statusIndicator={attendance.status}
     >

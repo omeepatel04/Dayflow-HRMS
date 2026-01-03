@@ -8,81 +8,19 @@ import {
   XCircle,
 } from "lucide-react";
 import WorkspaceLayout from "../../components/layout/WorkspaceLayout";
-import { ROUTES } from "../../config/constants";
 import { dashboardAPI, leavesAPI, attendanceAPI } from "../../services";
 import { cn } from "../../utils/cn";
-
-const tabs = [
-  { key: "dashboard", label: "Dashboard", path: ROUTES.ADMIN_DASHBOARD },
-  { key: "employees", label: "Employees", path: ROUTES.ADMIN_EMPLOYEES },
-  { key: "attendance", label: "Attendance", path: ROUTES.ADMIN_ATTENDANCE },
-  { key: "leaves", label: "Leave Requests", path: ROUTES.ADMIN_TIME_OFF },
-];
+import { ROUTES } from "../../config/constants";
 
 const LABEL_TONE = "text-xs uppercase tracking-[0.35em] text-[#b28fa1]";
 const BORDER_SOFT = "border-[rgba(117,81,108,0.18)]";
 const CHIP_BG = "bg-[#fef4f7]";
 
-// Dummy data for demonstration
-const DUMMY_STATS = {
-  total_employees: 48,
-  present_today: 42,
-  on_leave_today: 3,
-  pending_leaves: 5,
-};
-
-const DUMMY_PENDING_LEAVES = [
-  {
-    id: 1,
-    employee: { first_name: "John", last_name: "Doe" },
-    leave_type: "Casual Leave",
-    start_date: "2026-01-10",
-    end_date: "2026-01-12",
-    reason: "Personal work",
-    status: "pending",
-  },
-  {
-    id: 2,
-    employee: { first_name: "Sarah", last_name: "Johnson" },
-    leave_type: "Sick Leave",
-    start_date: "2026-01-08",
-    end_date: "2026-01-08",
-    reason: "Medical appointment",
-    status: "pending",
-  },
-  {
-    id: 3,
-    employee: { first_name: "Michael", last_name: "Chen" },
-    leave_type: "Vacation",
-    start_date: "2026-01-15",
-    end_date: "2026-01-22",
-    reason: "Planned vacation",
-    status: "pending",
-  },
-  {
-    id: 4,
-    employee: { first_name: "Emily", last_name: "Williams" },
-    leave_type: "Casual Leave",
-    start_date: "2026-01-20",
-    end_date: "2026-01-21",
-    reason: "Family event",
-    status: "pending",
-  },
-  {
-    id: 5,
-    employee: { first_name: "David", last_name: "Martinez" },
-    leave_type: "Maternity Leave",
-    start_date: "2026-02-01",
-    end_date: "2026-05-01",
-    reason: "Maternity",
-    status: "pending",
-  },
-];
-
 const AdminDashboard = () => {
-  const [stats, setStats] = useState(DUMMY_STATS);
-  const [pendingLeaves, setPendingLeaves] = useState(DUMMY_PENDING_LEAVES);
-  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [pendingLeaves, setPendingLeaves] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -90,20 +28,29 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [dashboardData, leavesData] = await Promise.all([
+      setLoading(true);
+      setError(null);
+      const [dashboardData, leavesResponse] = await Promise.all([
         dashboardAPI.getHRDashboard(),
         leavesAPI.getAllLeaves({ status: "pending" }),
       ]);
-      // Use API data if available, otherwise use dummy data
-      setStats(dashboardData || DUMMY_STATS);
-      setPendingLeaves(
-        (leavesData && leavesData.slice(0, 5)) || DUMMY_PENDING_LEAVES
-      );
+
+      // Set stats from API
+      setStats({
+        total_employees: dashboardData.employees?.total || 0,
+        present_today: dashboardData.attendance?.present_today || 0,
+        on_leave_today: dashboardData.attendance?.on_leave_today || 0,
+        pending_leaves: dashboardData.leaves?.pending_count || 0,
+      });
+
+      // Backend returns { count, leaves }, extract leaves array
+      const leavesData = leavesResponse?.leaves || leavesResponse || [];
+      setPendingLeaves(leavesData.slice(0, 5));
     } catch (err) {
-      console.error("Failed to fetch dashboard, using dummy data:", err);
-      // Keep dummy data on error
-      setStats(DUMMY_STATS);
-      setPendingLeaves(DUMMY_PENDING_LEAVES);
+      console.error("Failed to fetch dashboard:", err);
+      setError("Failed to load dashboard data. Please try again.");
+      setStats(null);
+      setPendingLeaves([]);
     } finally {
       setLoading(false);
     }
@@ -111,18 +58,19 @@ const AdminDashboard = () => {
 
   const handleLeaveAction = async (id, isApproved) => {
     try {
-      // Try to update via API
-      try {
-        await leavesAPI.approveLeave(id, { is_approved: isApproved });
-      } catch (apiErr) {
-        console.warn("API update failed, updating locally:", apiErr);
-      }
-      // Update local state regardless
+      await leavesAPI.approveLeave(id, {
+        status: isApproved ? "APPROVED" : "REJECTED",
+        admin_comment: isApproved ? "Approved" : "Rejected",
+      });
+      // Optimistically update UI
       setPendingLeaves((prev) => prev.filter((leave) => leave.id !== id));
-      // Refresh dashboard data
-      fetchDashboardData();
+      // Refresh full dashboard data
+      await fetchDashboardData();
     } catch (err) {
       console.error("Failed to update leave:", err);
+      alert("Failed to update leave request. Please try again.");
+      // Refresh to show correct state
+      await fetchDashboardData();
     }
   };
 
@@ -157,8 +105,6 @@ const AdminDashboard = () => {
     <WorkspaceLayout
       title="HR Dashboard"
       description="Manage your team, approve requests, and monitor attendance all in one place."
-      tabs={tabs}
-      activeTab="dashboard"
     >
       <div className="space-y-6">
         {loading ? (
